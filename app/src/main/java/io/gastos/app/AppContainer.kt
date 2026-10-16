@@ -48,6 +48,16 @@ class AppContainer(context: Context) {
         } catch (e: IllegalStateException) {
             Log.w("Gastos", "Backup scheduling unavailable", e) // WorkManager not initialised (tests)
         }
+        refreshWidgets()
+    }
+
+    /** Saves the shared last-used label, then re-renders every widget so it shows the same label as Home. */
+    suspend fun setLastLabel(id: Long) {
+        prefs.setLastLabelId(id)
+        refreshWidgets()
+    }
+
+    private fun refreshWidgets() {
         appScope.launch {
             try {
                 GastosWidget().updateAll(appContext)

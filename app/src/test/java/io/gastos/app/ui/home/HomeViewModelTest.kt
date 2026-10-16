@@ -83,6 +83,34 @@ class HomeViewModelTest {
         assertEquals("", m.await { it.input == "" }.input)
     }
 
+    @Test fun failedSaveRestoresInputAndToasts() = runBlocking {
+        // Make every insert into expenses fail, like a broken database.
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER fail_insert BEFORE INSERT ON expenses BEGIN SELECT RAISE(ABORT, 'boom'); END",
+        )
+        val m = vm()
+        m.await { it.label != null }
+        listOf(Key.Digit(1), Key.Digit(2), Key.Dot, Key.Digit(5)).forEach(m::onKey)
+        m.await { it.input == "12.5" }
+        m.enter()
+        assertEquals("Couldn't save. Try again.", withTimeout(15_000) { m.toasts.first() })
+        assertEquals("12.5", m.await { it.input == "12.5" }.input)
+        assertEquals(0, expenses.rowsForDay(expenses.today()).size)
+    }
+
+    @Test fun selectingLabelUsesInjectedSetter() = runBlocking {
+        val transpo = byName("Transpo")
+        val calls = mutableListOf<Long>()
+        val m = HomeViewModel(expenses, labels, prefs, MutableStateFlow(expenses.today())) { id ->
+            calls += id
+            prefs.setLastLabelId(id)
+        }
+        m.await { it.label != null }
+        m.selectLabel(transpo.id)
+        m.await { it.label?.id == transpo.id }
+        assertEquals(listOf(transpo.id), calls)
+    }
+
     @Test fun enterWithZeroDoesNothing() = runBlocking {
         val m = vm()
         m.await { it.label != null }

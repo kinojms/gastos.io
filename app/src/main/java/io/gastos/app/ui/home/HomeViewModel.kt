@@ -9,7 +9,9 @@ import io.gastos.app.data.LabelRepository
 import io.gastos.app.domain.AmountInput
 import io.gastos.app.domain.Key
 import io.gastos.app.domain.Money
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 data class HomeState(
@@ -40,6 +43,8 @@ class HomeViewModel(
     private val prefs: AppPrefs,
     /** Emits the current date, and again whenever it changes (midnight rollover). */
     dates: Flow<LocalDate> = dateTicker(expenses),
+    /** Persists the shared last-used label; the app wires this to also refresh the widget. */
+    private val setLastLabel: suspend (Long) -> Unit = prefs::setLastLabelId,
 ) : ViewModel() {
     private val input = MutableStateFlow("")
     private val toastChannel = Channel<String>(Channel.BUFFERED)
@@ -70,16 +75,26 @@ class HomeViewModel(
     }
 
     fun selectLabel(id: Long) {
-        viewModelScope.launch { prefs.setLastLabelId(id) }
+        viewModelScope.launch { setLastLabel(id) }
     }
 
     fun enter() {
         val cents = AmountInput.toCentavos(input.value) ?: return
         val label = state.value.label ?: return
-        input.value = ""
+        val typed = input.value
+        input.value = "" // cleared before the insert so a double tap cannot save twice
         viewModelScope.launch {
-            expenses.add(cents, label.id)
-            toastChannel.send("Added ${Money.format(cents)} · ${label.name}")
+            val message = try {
+                // Leaving Home must not cancel an insert the user already confirmed with Enter.
+                withContext(NonCancellable) { expenses.add(cents, label.id) }
+                "Added ${Money.format(cents)} · ${label.name}"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                input.compareAndSet("", typed) // give the amount back unless the user started typing again
+                "Couldn't save. Try again."
+            }
+            toastChannel.send(message)
         }
     }
 

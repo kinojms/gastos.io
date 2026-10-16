@@ -1,6 +1,7 @@
 package io.gastos.app.widget
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
@@ -11,6 +12,9 @@ import io.gastos.app.AppContainer
 import io.gastos.app.GastosApp
 import io.gastos.app.domain.AmountInput
 import io.gastos.app.domain.Key
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 
 private fun Context.container(): AppContainer = (applicationContext as GastosApp).container
 
@@ -51,7 +55,8 @@ class NextLabelAction : ActionCallback {
         if (labels.isEmpty()) return
         // Advance from the label actually shown, so a never-set pref still moves off the first label.
         val shown = container.prefs.resolveLabel(labels)
-        container.prefs.setLastLabelId(WidgetLogic.nextLabel(labels, shown.id).id)
+        // Also refreshes every widget instance, so all of them show the new label.
+        container.setLastLabel(WidgetLogic.nextLabel(labels, shown.id).id)
         GastosWidget().update(context, glanceId)
     }
 }
@@ -65,13 +70,30 @@ class EnterAction : ActionCallback {
         // Take and clear a valid amount in one state write so a double tap cannot save twice.
         // Empty/zero input is left untouched, like Home.
         var cents: Long? = null
+        var typed = ""
         updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs: Preferences ->
-            cents = WidgetLogic.amountToSave(prefs[GastosWidget.INPUT] ?: "")
+            typed = prefs[GastosWidget.INPUT] ?: ""
+            cents = WidgetLogic.amountToSave(typed)
             if (cents == null) prefs else prefs.toMutablePreferences().apply { remove(GastosWidget.INPUT) }
         }
         val amount = cents ?: return
         val label = container.prefs.resolveLabel(labels)
-        // add() calls onDataChanged(), which refreshes every widget instance with the cleared input.
-        container.expenses.add(amount, label.id)
+        // The amount is already cleared, so finish the insert (or the restore) even if this action is cancelled.
+        withContext(NonCancellable) {
+            try {
+                // add() calls onDataChanged(), which refreshes every widget instance with the cleared input.
+                container.expenses.add(amount, label.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("Gastos", "Widget save failed", e)
+                updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { prefs: Preferences ->
+                    prefs.toMutablePreferences().apply {
+                        this[GastosWidget.INPUT] = WidgetLogic.inputAfterFailedSave(this[GastosWidget.INPUT], typed)
+                    }
+                }
+                GastosWidget().update(context, glanceId)
+            }
+        }
     }
 }

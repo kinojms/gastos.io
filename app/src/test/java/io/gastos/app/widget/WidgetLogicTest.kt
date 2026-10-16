@@ -35,6 +35,14 @@ class WidgetLogicTest {
     @Test fun singleLabelWrapsToItself() =
         assertEquals("Other", WidgetLogic.nextLabel(listOf(labels.last()), labels.last().id).name)
 
+    @Test fun failedSaveRestoresIntoEmptyInput() {
+        assertEquals("12.5", WidgetLogic.inputAfterFailedSave(null, "12.5"))
+        assertEquals("12.5", WidgetLogic.inputAfterFailedSave("", "12.5"))
+    }
+
+    @Test fun failedSaveKeepsNewTyping() =
+        assertEquals("7", WidgetLogic.inputAfterFailedSave("7", "12.5"))
+
     @Test fun emptyInputSavesNothing() = assertNull(WidgetLogic.amountToSave(""))
 
     @Test fun zeroInputSavesNothing() = assertNull(WidgetLogic.amountToSave("0.00"))

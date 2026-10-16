@@ -17,4 +17,8 @@ object WidgetLogic {
 
     /** Centavos to save on Enter, or null when the input is empty, malformed or zero. */
     fun amountToSave(input: String): Long? = AmountInput.toCentavos(input)
+
+    /** Input to show after a failed save of [typed]: the typed amount, unless the user already typed something new. */
+    fun inputAfterFailedSave(current: String?, typed: String): String =
+        if (current.isNullOrEmpty()) typed else current
 }
