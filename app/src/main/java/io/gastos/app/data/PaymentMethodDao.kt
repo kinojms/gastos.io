@@ -31,6 +31,12 @@ interface PaymentMethodDao {
     @Insert
     suspend fun insert(method: PaymentMethodEntity): Long
 
+    @Insert
+    suspend fun insertAll(methods: List<PaymentMethodEntity>)
+
+    @Query("DELETE FROM payment_methods")
+    suspend fun deleteAll()
+
     @Query("UPDATE payment_methods SET name = :name WHERE id = :id")
     suspend fun rename(id: Long, name: String)
 

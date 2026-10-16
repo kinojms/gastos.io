@@ -54,32 +54,50 @@ class ExportService(
     private fun bytes(rows: List<ExpenseRow>, format: Format): ByteArray =
         if (format == Format.CSV) CsvExporter.write(rows, zone()) else XlsxWriter.write(listOf(expensesSheet(rows)))
 
-    private fun monthXlsx(rows: List<ExpenseRow>): ByteArray {
-        val byLabel = rows.groupBy { it.labelName }
-            .map { (name, rs) -> name to rs.sumOf { it.amountCentavos } }
+    private fun monthXlsx(rows: List<ExpenseRow>): ByteArray = XlsxWriter.write(
+        listOf(
+            expensesSheet(rows),
+            totalsSheet("By label", "Label", rows) { it.labelName },
+            totalsSheet("By payment", "Payment", rows) { it.paymentMethodName },
+        ),
+    )
+
+    /** One row per group (largest first) with its amount, then a Total row. */
+    private fun totalsSheet(name: String, groupHeader: String, rows: List<ExpenseRow>, key: (ExpenseRow) -> String): Sheet {
+        val totals = rows.groupBy(key)
+            .map { (group, rs) -> group to rs.sumOf { it.amountCentavos } }
             .sortedByDescending { it.second }
-        val labelSheet = Sheet(
-            name = "By label",
-            header = listOf("Label", "Amount"),
-            rows = byLabel.map { listOf(Cell.Text(it.first), Cell.Peso(it.second)) },
+        return Sheet(
+            name = name,
+            header = listOf(groupHeader, "Amount"),
+            rows = totals.map { listOf(Cell.Text(it.first), Cell.Peso(it.second)) },
             totalLabelCol = 0,
             sumCols = listOf(1),
         )
-        return XlsxWriter.write(listOf(expensesSheet(rows), labelSheet))
     }
 
     private fun expensesSheet(rows: List<ExpenseRow>): Sheet {
         val time = DateTimeFormatter.ofPattern("HH:mm")
         val z = zone()
+        fun optional(s: String?): Cell = if (s.isNullOrEmpty()) Cell.Blank else Cell.Text(s)
         return Sheet(
             name = "Expenses",
-            header = listOf("Date", "Time", "Label", "Amount"),
+            header = listOf("Date", "Time", "Label", "Payment", "Description", "Amount", "Notes"),
             rows = rows.map {
                 val at = Instant.ofEpochMilli(it.timestamp).atZone(z)
-                listOf(Cell.Date(at.toLocalDate()), Cell.Text(at.format(time)), Cell.Text(it.labelName), Cell.Peso(it.amountCentavos))
+                listOf(
+                    Cell.Date(at.toLocalDate()),
+                    Cell.Text(at.format(time)),
+                    Cell.Text(it.labelName),
+                    Cell.Text(it.paymentMethodName),
+                    optional(it.description),
+                    Cell.Peso(it.amountCentavos),
+                    optional(it.notes),
+                )
             },
-            totalLabelCol = 2,
-            sumCols = listOf(3),
+            totalLabelCol = 4, // "Total" under Description, next to the Amount sum
+            sumCols = listOf(5), // Amount = column F
+            wrapCols = setOf(6), // Notes
         )
     }
 

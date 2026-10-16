@@ -18,12 +18,14 @@ abstract class GastosDatabase : RoomDatabase() {
     abstract fun labelDao(): LabelDao
     abstract fun paymentMethodDao(): PaymentMethodDao
 
-    /** Replaces every label and expense in one transaction, keeping the given ids. */
-    suspend fun replaceAll(labels: List<LabelEntity>, expenses: List<ExpenseEntity>) {
+    /** Replaces every label, payment method and expense in one transaction, keeping the given ids. */
+    suspend fun replaceAll(labels: List<LabelEntity>, methods: List<PaymentMethodEntity>, expenses: List<ExpenseEntity>) {
         withTransaction {
             expenseDao().deleteAll()
             labelDao().deleteAll()
+            paymentMethodDao().deleteAll()
             labelDao().insertAll(labels)
+            paymentMethodDao().insertAll(methods)
             expenseDao().insertAll(expenses)
         }
     }

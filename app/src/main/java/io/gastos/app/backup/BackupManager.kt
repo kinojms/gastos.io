@@ -6,6 +6,7 @@ import io.gastos.app.data.DEFAULT_PAYMENT_METHODS
 import io.gastos.app.data.ExpenseEntity
 import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelEntity
+import io.gastos.app.data.PaymentMethodEntity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -36,8 +37,10 @@ class BackupManager(
         if (!prefs.backupEnabled.first()) return@withLock Result.success(Unit)
         val result = attempt {
             val (repo, token) = credentials()
-            val (labels, expenses) = db.withTransaction { db.labelDao().all() to db.expenseDao().all() }
-            val json = BackupSerializer.encode(toBackup(labels, expenses))
+            val file = db.withTransaction {
+                toBackup(db.labelDao().all(), db.paymentMethodDao().all(), db.expenseDao().all())
+            }
+            val json = BackupSerializer.encode(file)
             val sha = github.getSha(repo, PATH, token)
             github.upload(repo, PATH, token, json, sha, commitMessage())
         }
@@ -64,13 +67,19 @@ class BackupManager(
                 throw BackupException(DAMAGED)
             }
             val labels = file.labels.map { LabelEntity(it.id, it.name, it.colorArgb, it.position, it.isOther) }
-            // Backup schema 1 has no payment methods: every restored expense goes to Cash (first active as fallback).
-            val methodId = defaultPaymentMethodId()
-            val expenses = file.expenses.map {
-                ExpenseEntity(it.id, it.amountCentavos, it.labelId, it.timestamp, paymentMethodId = methodId)
+            val (methods, expenses) = if (file.paymentMethods.isEmpty()) {
+                // Schema 1 has no payment methods: restore the six defaults (Cash = id 1) and put
+                // every expense on Cash, independent of whatever methods this phone has now.
+                val defaults = DEFAULT_PAYMENT_METHODS.mapIndexed { i, (name, color) ->
+                    PaymentMethodEntity(id = i + 1L, name = name, colorArgb = color, position = i, archived = false)
+                }
+                defaults to file.expenses.map { it.toEntity(defaults.first().id) }
+            } else {
+                val methods = file.paymentMethods.map { PaymentMethodEntity(it.id, it.name, it.colorArgb, it.position, it.archived) }
+                methods to file.expenses.map { it.toEntity(it.paymentMethodId ?: throw BackupException(DAMAGED)) }
             }
-            validate(labels, expenses)
-            db.replaceAll(labels, expenses)
+            validate(labels, methods, expenses)
+            db.replaceAll(labels, methods, expenses)
             prefs.setBackupEnabled(true)
             prefs.setLastBackupError(null)
             onDataChanged()
@@ -90,26 +99,32 @@ class BackupManager(
         return repo to token
     }
 
-    private suspend fun defaultPaymentMethodId(): Long {
-        val active = db.paymentMethodDao().active()
-        return (active.firstOrNull { it.name == DEFAULT_PAYMENT_METHODS.first().first } ?: active.firstOrNull())?.id
-            ?: throw BackupException("No payment method to restore into.")
-    }
+    private fun BackupExpense.toEntity(methodId: Long) =
+        ExpenseEntity(id, amountCentavos, labelId, timestamp, methodId, description, notes)
 
-    private fun toBackup(labels: List<LabelEntity>, expenses: List<ExpenseEntity>) = BackupFile(
-        schemaVersion = BackupSerializer.CURRENT,
-        exportedAt = clock.instant().toString(),
-        labels = labels.map { BackupLabel(it.id, it.name, it.colorArgb, it.position, it.isOther) },
-        expenses = expenses.map { BackupExpense(it.id, it.amountCentavos, it.labelId, it.timestamp) },
-    )
+    private fun toBackup(labels: List<LabelEntity>, methods: List<PaymentMethodEntity>, expenses: List<ExpenseEntity>) =
+        BackupFile(
+            schemaVersion = BackupSerializer.CURRENT,
+            exportedAt = clock.instant().toString(),
+            labels = labels.map { BackupLabel(it.id, it.name, it.colorArgb, it.position, it.isOther) },
+            paymentMethods = methods.map { BackupPaymentMethod(it.id, it.name, it.colorArgb, it.position, it.archived) },
+            expenses = expenses.map {
+                BackupExpense(it.id, it.amountCentavos, it.labelId, it.timestamp, it.paymentMethodId, it.description, it.notes)
+            },
+        )
 
-    /** Rejects files that would leave the app in a broken state (no Other label, orphaned expenses). */
-    private fun validate(labels: List<LabelEntity>, expenses: List<ExpenseEntity>) {
+    /**
+     * Rejects files that would leave the app in a broken state: no single Other label, no active
+     * payment method, duplicate or non-positive ids, or expenses pointing at a missing label or method.
+     */
+    private fun validate(labels: List<LabelEntity>, methods: List<PaymentMethodEntity>, expenses: List<ExpenseEntity>) {
         val labelIds = labels.map { it.id }.toSet()
+        val methodIds = methods.map { it.id }.toSet()
         val ok = labels.count { it.isOther } == 1 &&
             labelIds.size == labels.size && labelIds.none { it <= 0 } &&
+            methodIds.size == methods.size && methodIds.none { it <= 0 } && methods.any { !it.archived } &&
             expenses.map { it.id }.toSet().size == expenses.size && expenses.none { it.id <= 0 } &&
-            expenses.all { it.labelId in labelIds }
+            expenses.all { it.labelId in labelIds && it.paymentMethodId in methodIds }
         if (!ok) throw BackupException(DAMAGED)
     }
 

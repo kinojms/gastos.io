@@ -117,7 +117,10 @@ class XlsxWriterTest {
 
     @Test fun xlsxPackageIsWellFormedAndConsistent() {
         val by = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("  leading & <b>"), Cell.Peso(100))), 0, listOf(1))
-        val parts = unzip(XlsxWriter.write(listOf(expensesSheet("  a\u0001b\u000Bc label"), by)))
+        val notes = Sheet(
+            "Notes", listOf("Notes", "Amount"), listOf(listOf(Cell.Text("long\nnote"), Cell.Peso(1))), 0, listOf(1), wrapCols = setOf(0),
+        )
+        val parts = unzip(XlsxWriter.write(listOf(expensesSheet("  a\u0001b\u000Bc label"), by, notes)))
         val docs = parts.mapValues { parse(it.value) }
 
         // styles counts match children
@@ -132,7 +135,7 @@ class XlsxWriterTest {
         val rels = docs.getValue("xl/_rels/workbook.xml.rels").getElementsByTagNameNS("*", "Relationship")
         val relTargets = (0 until rels.length).associate { val r = rels.item(it) as Element; r.getAttribute("Id") to r.getAttribute("Target") }
         val sheetEls = docs.getValue("xl/workbook.xml").getElementsByTagNameNS("*", "sheet")
-        assertEquals(2, sheetEls.length)
+        assertEquals(3, sheetEls.length)
         for (i in 0 until sheetEls.length) {
             val id = (sheetEls.item(i) as Element).getAttributeNS(relNs, "id")
             val target = relTargets[id] ?: error("no relationship $id")
@@ -151,5 +154,25 @@ class XlsxWriterTest {
         val sheet1 = parts.getValue("xl/worksheets/sheet1.xml")
         assertTrue(sheet1.contains("xml:space=\"preserve\">  abc label<"))
         assertTrue(parts.values.none { p -> p.any { it == '\u0001' || it == '\u000B' } })
+    }
+
+    @Test fun wrapColumnsUseWrapStyleAndCappedWidth() {
+        val long = "x".repeat(200)
+        val s = Sheet(
+            name = "Expenses",
+            header = listOf("Amount", "Notes"),
+            rows = listOf(listOf(Cell.Peso(100), Cell.Text(long)), listOf(Cell.Peso(100), Cell.Blank)),
+            totalLabelCol = 1,
+            sumCols = listOf(0),
+            wrapCols = setOf(1),
+        )
+        assertEquals(40.0, XlsxWriter.autoWidths(s)[1], 0.0)
+        val parts = unzip(XlsxWriter.write(listOf(s)))
+        val styles = parts.getValue("xl/styles.xml")
+        assertTrue(styles, styles.contains("""<cellXfs count="7">"""))
+        assertTrue(styles, styles.contains("""<alignment wrapText="1" vertical="top"/>"""))
+        val sheet = parts.getValue("xl/worksheets/sheet1.xml")
+        assertTrue(sheet, sheet.contains("""<c r="B2" s="6" t="inlineStr">"""))
+        assertTrue("blank cell is omitted", !sheet.contains("""r="B3""""))
     }
 }

@@ -12,6 +12,7 @@ object XlsxWriter {
         data class Text(val s: String) : Cell
         data class Peso(val centavos: Long) : Cell
         data class Date(val date: LocalDate) : Cell
+        data object Blank : Cell
     }
 
     data class Sheet(
@@ -20,6 +21,7 @@ object XlsxWriter {
         val rows: List<List<Cell>>,
         val totalLabelCol: Int,
         val sumCols: List<Int>,
+        val wrapCols: Set<Int> = emptySet(),
     )
 
     // Style indexes in cellXfs.
@@ -29,6 +31,10 @@ object XlsxWriter {
     private const val S_DATE = 3
     private const val S_TOTAL_TEXT = 4
     private const val S_TOTAL_PESO = 5
+    private const val S_WRAP = 6
+
+    /** Wrapped (long text) columns are never auto-sized wider than this. */
+    const val WRAP_MAX_WIDTH = 40.0
 
     private const val XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"""
     private const val NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -37,6 +43,7 @@ object XlsxWriter {
     /**
      * Auto-sized column widths (in characters): the longest of the header, every cell and the total row,
      * plus 2 for padding. Dates count as 10 (yyyy-mm-dd) and amounts as their ₱-formatted text.
+     * Columns in [Sheet.wrapCols] are capped at [WRAP_MAX_WIDTH].
      */
     fun autoWidths(s: Sheet): List<Double> {
         val cols = maxOf(s.header.size, s.rows.maxOfOrNull { it.size } ?: 0)
@@ -45,7 +52,8 @@ object XlsxWriter {
             for (row in s.rows) longest = maxOf(longest, row.getOrNull(c)?.let(::displayLength) ?: 0)
             if (c == s.totalLabelCol) longest = maxOf(longest, "Total".length)
             if (c in s.sumCols) longest = maxOf(longest, Money.format(sumOf(s, c)).length)
-            (longest + 2).toDouble()
+            val width = (longest + 2).toDouble()
+            if (c in s.wrapCols) minOf(width, WRAP_MAX_WIDTH) else width
         }
     }
 
@@ -53,6 +61,7 @@ object XlsxWriter {
         is Cell.Text -> cell.s.length
         is Cell.Peso -> Money.format(cell.centavos).length
         is Cell.Date -> 10
+        Cell.Blank -> 0
     }
 
     private fun sumOf(s: Sheet, c: Int): Long = s.rows.sumOf { (it.getOrNull(c) as? Cell.Peso)?.centavos ?: 0L }
@@ -112,13 +121,14 @@ object XlsxWriter {
         """<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>""" +
         """<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>""" +
         """<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>""" +
-        """<cellXfs count="6">""" +
+        """<cellXfs count="7">""" +
         """<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>""" +
         """<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>""" +
         """<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>""" +
         """<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>""" +
         """<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>""" +
         """<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>""" +
+        """<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf>""" +
         """</cellXfs>""" +
         """<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>""" +
         """</styleSheet>"""
@@ -141,9 +151,10 @@ object XlsxWriter {
             append("""<row r="$r">""")
             row.forEachIndexed { c, cell ->
                 when (cell) {
-                    is Cell.Text -> append(textCell(ref(c, r), cell.s, S_DEFAULT))
+                    is Cell.Text -> append(textCell(ref(c, r), cell.s, if (c in s.wrapCols) S_WRAP else S_DEFAULT))
                     is Cell.Peso -> append("""<c r="${ref(c, r)}" s="$S_PESO"><v>${Money.plain(cell.centavos)}</v></c>""")
                     is Cell.Date -> append("""<c r="${ref(c, r)}" s="$S_DATE"><v>${cell.date.toEpochDay() + 25569}</v></c>""")
+                    Cell.Blank -> {}
                 }
             }
             append("</row>")

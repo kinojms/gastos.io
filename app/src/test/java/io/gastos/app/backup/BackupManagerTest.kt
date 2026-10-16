@@ -7,6 +7,7 @@ import io.gastos.app.data.AppPrefs
 import io.gastos.app.data.ExpenseEntity
 import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelEntity
+import io.gastos.app.data.PaymentMethodEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -197,7 +198,7 @@ class BackupManagerTest {
 
     @Test fun newerSchemaRestoreKeepsLocal() = runBlocking {
         val labelsBefore = localLabels()
-        github.remote = """{"schemaVersion":2,"exportedAt":"x","labels":[],"expenses":[]}"""
+        github.remote = """{"schemaVersion":3,"exportedAt":"x","labels":[],"expenses":[]}"""
 
         val result = manager.restore()
 
@@ -213,5 +214,159 @@ class BackupManagerTest {
         assertEquals("No backup found in this repo.", result.exceptionOrNull()?.message)
         assertEquals(5, localLabels().size)
         assertFalse(prefs.backupEnabled.first())
+    }
+
+    private val v1Json = """{"schemaVersion":1,"exportedAt":"2026-10-15T00:00:00Z",
+        "labels":[{"id":10,"name":"Groceries","colorArgb":1,"position":0,"isOther":false},
+                  {"id":11,"name":"Other","colorArgb":2,"position":1,"isOther":true}],
+        "expenses":[{"id":40,"amountCentavos":12345,"labelId":10,"timestamp":1000},
+                    {"id":41,"amountCentavos":500,"labelId":11,"timestamp":2000}]}"""
+
+    private val defaults = listOf(
+        PaymentMethodEntity(1, "Cash", 0xFF77808B.toInt(), 0, false),
+        PaymentMethodEntity(2, "GCash", 0xFF007DFE.toInt(), 1, false),
+        PaymentMethodEntity(3, "Maribank", 0xFFFF6A13.toInt(), 2, false),
+        PaymentMethodEntity(4, "BPI", 0xFFA6192E.toInt(), 3, false),
+        PaymentMethodEntity(5, "Maya", 0xFF00B26B.toInt(), 4, false),
+        PaymentMethodEntity(6, "BDO", 0xFF0033A0.toInt(), 5, false),
+    )
+
+    /** Makes this phone's methods differ from the defaults, so restore can't lean on them. */
+    private suspend fun scrambleLocalMethods() {
+        val dao = db.paymentMethodDao()
+        val cashId = cash()
+        dao.insert(PaymentMethodEntity(name = "Card", colorArgb = 7, position = 6))
+        dao.rename(cashId, "Coins")
+        dao.archive(cashId)
+    }
+
+    private fun v2Backup(
+        methods: List<BackupPaymentMethod>,
+        expenses: List<BackupExpense>,
+    ) = BackupSerializer.encode(
+        BackupFile(
+            exportedAt = "2026-10-15T00:00:00Z",
+            labels = listOf(
+                BackupLabel(id = 10, name = "Groceries", colorArgb = 1, position = 0, isOther = false),
+                BackupLabel(id = 11, name = "Other", colorArgb = 2, position = 1, isOther = true),
+            ),
+            paymentMethods = methods,
+            expenses = expenses,
+        ),
+    )
+
+    private suspend fun assertRejectedAsDamaged(remote: String) {
+        db.expenseDao().insert(ExpenseEntity(amountCentavos = 999, labelId = localLabels().first().id, timestamp = 5, paymentMethodId = cash()))
+        val labelsBefore = localLabels()
+        val methodsBefore = db.paymentMethodDao().all()
+        val expensesBefore = localExpenses()
+        github.remote = remote
+
+        val result = manager.restore()
+
+        assertEquals("This backup file is damaged or isn't a Gastos.io backup.", result.exceptionOrNull()?.message)
+        assertEquals(labelsBefore, localLabels())
+        assertEquals(methodsBefore, db.paymentMethodDao().all())
+        assertEquals(expensesBefore, localExpenses())
+        assertFalse(prefs.backupEnabled.first())
+        assertEquals(0, dataChangedCalls)
+    }
+
+    @Test fun restoresSchema1BackupWithCash() = runBlocking {
+        scrambleLocalMethods()
+        github.remote = v1Json
+
+        val result = manager.restore()
+
+        assertTrue(result.exceptionOrNull()?.toString(), result.isSuccess)
+        assertEquals(defaults, db.paymentMethodDao().all())
+        assertEquals(
+            listOf(
+                ExpenseEntity(id = 40, amountCentavos = 12_345, labelId = 10, timestamp = 1_000, paymentMethodId = 1),
+                ExpenseEntity(id = 41, amountCentavos = 500, labelId = 11, timestamp = 2_000, paymentMethodId = 1),
+            ),
+            localExpenses(),
+        )
+        assertEquals(2, localLabels().size)
+    }
+
+    @Test fun roundTripKeepsMethodsDescriptionNotes() = runBlocking {
+        val dao = db.paymentMethodDao()
+        val labelId = localLabels().first().id
+        val oldCard = dao.insert(PaymentMethodEntity(name = "Old card", colorArgb = 7, position = 6))
+        db.expenseDao().insert(
+            ExpenseEntity(
+                amountCentavos = 18_500, labelId = labelId, timestamp = 9, paymentMethodId = oldCard,
+                description = "Jollibee", notes = "With \"friends\",\nlate",
+            ),
+        )
+        db.expenseDao().insert(ExpenseEntity(amountCentavos = 300, labelId = labelId, timestamp = 10, paymentMethodId = cash()))
+        dao.archive(oldCard)
+        dao.rename(cash(), "Wallet")
+        val labelsBefore = localLabels()
+        val methodsBefore = dao.all()
+        val expensesBefore = localExpenses()
+
+        manager.startFresh()
+        val uploaded = github.uploads.single().first
+        val file = BackupSerializer.decode(uploaded)
+        assertEquals(2, file.schemaVersion)
+        assertEquals(methodsBefore.size, file.paymentMethods.size)
+        assertTrue(file.paymentMethods.single { it.id == oldCard }.archived)
+
+        // Wipe the phone's copy, then restore what was uploaded.
+        db.replaceAll(emptyList(), emptyList(), emptyList())
+        github.remote = uploaded
+        val result = manager.restore()
+
+        assertTrue(result.exceptionOrNull()?.toString(), result.isSuccess)
+        assertEquals(labelsBefore, localLabels())
+        assertEquals(methodsBefore, dao.all())
+        assertEquals(expensesBefore, localExpenses())
+    }
+
+    @Test fun rejectsUnknownPaymentMethodId() = runBlocking {
+        assertRejectedAsDamaged(
+            v2Backup(
+                methods = listOf(BackupPaymentMethod(id = 1, name = "Cash", colorArgb = 1, position = 0)),
+                expenses = listOf(BackupExpense(id = 40, amountCentavos = 1, labelId = 10, timestamp = 1, paymentMethodId = 9)),
+            ),
+        )
+    }
+
+    @Test fun rejectsMissingPaymentMethodIdWhenMethodsPresent() = runBlocking {
+        assertRejectedAsDamaged(
+            v2Backup(
+                methods = listOf(BackupPaymentMethod(id = 1, name = "Cash", colorArgb = 1, position = 0)),
+                expenses = listOf(BackupExpense(id = 40, amountCentavos = 1, labelId = 10, timestamp = 1)),
+            ),
+        )
+    }
+
+    @Test fun rejectsAllArchivedMethods() = runBlocking {
+        assertRejectedAsDamaged(
+            v2Backup(
+                methods = listOf(BackupPaymentMethod(id = 1, name = "Cash", colorArgb = 1, position = 0, archived = true)),
+                expenses = listOf(BackupExpense(id = 40, amountCentavos = 1, labelId = 10, timestamp = 1, paymentMethodId = 1)),
+            ),
+        )
+    }
+
+    @Test fun rejectsDuplicateOrNonPositiveMethodIds() = runBlocking {
+        assertRejectedAsDamaged(
+            v2Backup(
+                methods = listOf(
+                    BackupPaymentMethod(id = 1, name = "Cash", colorArgb = 1, position = 0),
+                    BackupPaymentMethod(id = 1, name = "GCash", colorArgb = 2, position = 1),
+                ),
+                expenses = emptyList(),
+            ),
+        )
+        assertRejectedAsDamaged(
+            v2Backup(
+                methods = listOf(BackupPaymentMethod(id = 0, name = "Cash", colorArgb = 1, position = 0)),
+                expenses = emptyList(),
+            ),
+        )
     }
 }

@@ -7,7 +7,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 object BackupSerializer {
-    const val CURRENT = 1
+    const val CURRENT = 2
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -31,7 +31,8 @@ object BackupSerializer {
         if (version > CURRENT) {
             throw UnsupportedBackupException("This backup is from a newer version of Gastos.io. Update the app first.")
         }
-        // Older versions would be migrated here; version 1 is the first.
+        // Schema 1 decodes as-is: it simply has no paymentMethods and no per-expense method,
+        // description or notes. BackupManager fills in the default methods on restore.
         return this.json.decodeFromJsonElement(BackupFile.serializer(), root)
     }
 }
