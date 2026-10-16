@@ -58,7 +58,8 @@ Mockups (approved): https://claude.ai/artifact/A32jzAPiiHAf8xuofVGEAZ
 - **Month**: month total plus per-label totals with bars (largest first). Month switcher. Export CSV / XLSX for the whole month.
 
 ### 3. Edit expense (bottom sheet)
-- Edit amount, label, time, date. Save / Delete. Delete needs no confirmation dialog, but show an Undo snackbar. *(Claude's call)*
+- Edit amount, label, time, date. Save / Delete.
+- Save and Delete each show a confirm popup first (owner's rule, see "Confirm popups").
 
 ### 4. Labels
 - Add, rename, recolor, reorder (drag), delete.
@@ -106,6 +107,11 @@ Mockups (approved): https://claude.ai/artifact/A32jzAPiiHAf8xuofVGEAZ
 - GitHub repo (owner/name) and token, backup status, Back up now, Restore.
 - Manage labels link.
 - Theme follows system light/dark. *(Claude's call)*
+
+## Confirm popups (decided by owner)
+- Every create/update/delete shows an in-app confirm popup **except** adding an expense from the Home numpad or widget (that stays one tap, followed by the "Added" toast).
+- Covers: editing or deleting an expense; adding, renaming, recoloring, reordering, or deleting a label; restoring from GitHub; changing backup settings.
+- The popup says what will happen, e.g. "Delete ₱45.50 · Transpo?" or "Delete label Hobbies? 12 expenses move to Other."
 
 ## Visual direction
 - Follow the mockups: clean, high-contrast, large touch targets, amber accent for Enter, dark mode supported.
