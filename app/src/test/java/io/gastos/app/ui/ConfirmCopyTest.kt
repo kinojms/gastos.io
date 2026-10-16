@@ -24,7 +24,7 @@ class ConfirmCopyTest {
 
     @Test fun backupCopy() {
         assertEquals("Restore from GitHub? This replaces all data on this phone.", ConfirmCopy.restore())
-        assertEquals("Start fresh? Backups will begin from this phone's data.", ConfirmCopy.startFresh())
+        assertEquals("Start fresh? Any existing backup in the repo will be replaced with this phone's data.", ConfirmCopy.startFresh())
         assertEquals("Save backup settings?", ConfirmCopy.saveBackupSettings())
     }
 }

@@ -16,6 +16,6 @@ object ConfirmCopy {
         else -> "Delete label $name? $count expenses move to Other."
     }
     fun restore() = "Restore from GitHub? This replaces all data on this phone."
-    fun startFresh() = "Start fresh? Backups will begin from this phone's data."
+    fun startFresh() = "Start fresh? Any existing backup in the repo will be replaced with this phone's data."
     fun saveBackupSettings() = "Save backup settings?"
 }

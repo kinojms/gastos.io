@@ -206,6 +206,24 @@ class SettingsViewModelTest {
         assertEquals(ActionResult("Couldn't save settings.", true), vm.result.value)
     }
 
+    @Test fun keystoreFailureOnLoadReadsAsNoToken() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val broken = object : TokenCipher {
+            override fun encrypt(plain: ByteArray) = plain
+            override fun decrypt(blob: ByteArray): ByteArray = throw java.security.ProviderException("keystore gone")
+        }
+        val badTokens = TokenStore(context.getSharedPreferences("settings_test_provider", Context.MODE_PRIVATE), broken)
+        badTokens.save("secret")
+        assertNull(badTokens.load())
+        prefs.setBackupRepo("o/r")
+        val manager = BackupManager(db, prefs, badTokens, FakeGitHub(), Clock.systemUTC()) { }
+        val vm = SettingsViewModel(prefs, badTokens, manager, io = Dispatchers.Unconfined)
+        withTimeout(5_000) { vm.repoInput.first { it == "o/r" } } // init ran past the token load
+        kotlinx.coroutines.delay(100)
+        assertFalse(vm.hasToken.value)
+        assertFalse(vm.canUseBackup.value)
+    }
+
     @Test fun secondActionIgnoredWhileBusy() = runBlocking {
         tokens.save("t")
         prefs.setBackupRepo("o/r")

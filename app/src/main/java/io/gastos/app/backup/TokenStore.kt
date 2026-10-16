@@ -70,14 +70,15 @@ class TokenStore(private val prefs: SharedPreferences, private val cipher: Token
         prefs.edit().putString(KEY, Base64.encodeToString(blob, Base64.NO_WRAP)).apply()
     }
 
-    /** The saved token, or null if none is saved or it can no longer be decrypted (e.g. key lost). */
+    /**
+     * The saved token, or null if none is saved or it can no longer be decrypted (key lost, Keystore
+     * ProviderException, I/O error, corrupt Base64...). Never throws, so callers such as Settings can't crash.
+     */
     fun load(): String? {
         val stored = prefs.getString(KEY, null) ?: return null
         return try {
             String(cipher.decrypt(Base64.decode(stored, Base64.NO_WRAP)), Charsets.UTF_8)
-        } catch (e: GeneralSecurityException) {
-            null
-        } catch (e: IllegalArgumentException) {
+        } catch (e: Exception) {
             null
         }
     }
