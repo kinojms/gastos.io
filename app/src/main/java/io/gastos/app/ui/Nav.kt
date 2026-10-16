@@ -17,6 +17,8 @@ import io.gastos.app.ui.expenses.ExpensesScreen
 import io.gastos.app.ui.expenses.ExpensesViewModel
 import io.gastos.app.ui.home.HomeScreen
 import io.gastos.app.ui.home.HomeViewModel
+import io.gastos.app.ui.labels.LabelsScreen
+import io.gastos.app.ui.labels.LabelsViewModel
 
 object Routes {
     const val HOME = "home"
@@ -43,6 +45,12 @@ fun GastosNavHost(container: AppContainer) {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
                 ExpensesViewModel(container.expenses, container.labels) as T
+        }
+    }
+    val labelsFactory = remember(container) {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = LabelsViewModel(container.labels) as T
         }
     }
     NavHost(nav, startDestination = Routes.HOME) {
@@ -74,7 +82,9 @@ fun GastosNavHost(container: AppContainer) {
                 )
             }
         }
-        composable(Routes.LABELS) { Text("Labels") }
+        composable(Routes.LABELS) {
+            LabelsScreen(vm = viewModel<LabelsViewModel>(factory = labelsFactory), onBack = { nav.popBackStack() })
+        }
         composable(Routes.SETTINGS) { Text("Settings") }
     }
 }
