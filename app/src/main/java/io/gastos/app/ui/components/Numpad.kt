@@ -31,10 +31,11 @@ private val rows: List<List<Pair<String, Key>>> = listOf(
     listOf("." to Key.Dot, "0" to Key.Digit(0), "⌫" to Key.Backspace),
 )
 
+/** [modifier] applies inside the side padding, so position reports cover just the keys. */
 @Composable
-fun Numpad(onKey: (Key) -> Unit) {
+fun Numpad(onKey: (Key) -> Unit, modifier: Modifier = Modifier) {
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp).then(modifier),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         rows.forEach { row ->

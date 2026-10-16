@@ -133,6 +133,23 @@ class HomeViewModelTest {
         assertEquals(listOf(transpo.id), calls)
     }
 
+    @Test fun enterIgnoredDuringTour() = runBlocking {
+        var touring = false
+        val m = vms.track {
+            HomeViewModel(expenses, labels, methods, prefs, MutableStateFlow(expenses.today()), tourActive = { touring })
+        }
+        m.await { it.label != null }
+        typeAmount(m, "25")
+        m.await { it.input == "25" }
+        touring = true
+        typeAmount(m, "9")
+        m.enter()
+        // A guarded enter() returns before clearing the input, so it is still there.
+        assertEquals("25", m.state.value.input)
+        assertNull(withTimeoutOrNull(300) { m.toasts.firstOrNull() })
+        assertEquals(0, expenses.rowsForDay(expenses.today()).size)
+    }
+
     @Test fun enterWithZeroDoesNothing() = runBlocking {
         val m = vm()
         m.await { it.label != null }

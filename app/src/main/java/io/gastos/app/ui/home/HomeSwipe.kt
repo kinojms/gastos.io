@@ -1,5 +1,6 @@
 package io.gastos.app.ui.home
 
+import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 
 /** Pure rules for Home's two-axis swipe: horizontal picks the payment method, vertical picks the label. */
@@ -28,3 +29,6 @@ object HomeSwipe {
     fun <T> step(items: List<T>, currentIndex: Int, delta: Int): Int =
         if (items.isEmpty()) 0 else Math.floorMod(currentIndex + delta, items.size)
 }
+
+/** Minimum drag on the dominant axis for a swipe to count; shared by Home and the guided tour. */
+val HomeSwipeThreshold = 48.dp

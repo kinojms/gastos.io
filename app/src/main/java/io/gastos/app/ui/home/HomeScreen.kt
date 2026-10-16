@@ -43,10 +43,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -56,6 +58,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.customActions
@@ -73,13 +76,20 @@ import io.gastos.app.domain.ExpenseText
 import io.gastos.app.domain.Money
 import io.gastos.app.ui.components.Numpad
 import io.gastos.app.ui.components.rememberVoiceInput
+import io.gastos.app.ui.guide.CoachOverlay
+import io.gastos.app.ui.guide.GuideController
+import io.gastos.app.ui.guide.GuideTarget
+import io.gastos.app.ui.guide.GuideTargets
+import io.gastos.app.ui.guide.guideTarget
 import io.gastos.app.ui.theme.GastosTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val dateFormat = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH)
-private val SwipeThreshold = 48.dp
+/** Pause after a tour swipe before the next step, so the user sees what changed. */
+private const val TOUR_SWIPE_ADVANCE_MS = 400L
 private const val TINT_LIGHT = 0.20f
 private const val TINT_DARK = 0.26f
 
@@ -98,6 +108,7 @@ private class FieldBounds {
 @Composable
 fun HomeScreen(
     vm: HomeViewModel,
+    guide: GuideController,
     onOpenExpenses: () -> Unit,
     onOpenLabels: () -> Unit,
     onOpenMethods: () -> Unit,
@@ -110,6 +121,20 @@ fun HomeScreen(
     val focus = LocalFocusManager.current
     val haptic = LocalHapticFeedback.current
     val bounds = remember { FieldBounds() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
+    val targets = remember { GuideTargets() }
+    val tourStep by guide.step.collectAsStateWithLifecycle()
+    // While the tour runs, only its swipe, Next/Done and Skip do anything.
+    val touring = tourStep != null
+
+    LaunchedEffect(Unit) { guide.startIfUnseen() }
+    LaunchedEffect(touring) {
+        if (touring) {
+            focus.clearFocus(force = true)
+            keyboard?.hide()
+        }
+    }
 
     LaunchedEffect(vm) {
         vm.toasts.collect { msg ->
@@ -130,6 +155,27 @@ fun HomeScreen(
         if (labelCount > 1) {
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
             vm.swipeLabel(delta)
+        }
+    }
+
+    /**
+     * Every swipe (touch, accessibility action, or the tour overlay) lands here. During the tour only the
+     * step's axis counts, and it completes the step even when there is nothing to change.
+     */
+    val onSwipe = { axis: HomeSwipe.Axis, delta: Int ->
+        val step = guide.step.value
+        if (step == null || step.swipeAxis == axis) {
+            when (axis) {
+                HomeSwipe.Axis.METHOD -> onMethod(delta)
+                HomeSwipe.Axis.LABEL -> onLabel(delta)
+                HomeSwipe.Axis.NONE -> Unit
+            }
+            if (step != null) {
+                scope.launch {
+                    delay(TOUR_SWIPE_ADVANCE_MS)
+                    guide.onSwipe(axis) // ignored if the tour moved on or ended meanwhile
+                }
+            }
         }
     }
 
@@ -161,14 +207,16 @@ fun HomeScreen(
                     Text("Today ${Money.format(state.todayTotal)}", fontSize = 12.sp, color = colors.muted)
                 }
                 IconButton(
-                    onClick = onOpenExpenses,
+                    onClick = { if (!touring) onOpenExpenses() },
                     colors = IconButtonDefaults.iconButtonColors(containerColor = colors.surface2, contentColor = colors.fg),
-                    modifier = Modifier.size(38.dp),
+                    modifier = Modifier.size(38.dp).guideTarget(targets, GuideTarget.HISTORY_ICON),
                 ) { Icon(Icons.AutoMirrored.Outlined.ViewList, contentDescription = "Expenses list") }
                 Box(Modifier.padding(start = 8.dp)) {
                     var menu by remember { mutableStateOf(false) }
+                    // The menu is a popup drawn above the overlay, so the tour closes it.
+                    LaunchedEffect(touring) { if (touring) menu = false }
                     IconButton(
-                        onClick = { menu = true },
+                        onClick = { if (!touring) menu = true },
                         colors = IconButtonDefaults.iconButtonColors(containerColor = colors.surface2, contentColor = colors.fg),
                         modifier = Modifier.size(38.dp),
                     ) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
@@ -182,28 +230,34 @@ fun HomeScreen(
 
             SwipeArea(
                 state = state,
-                onMethod = onMethod,
-                onLabel = onLabel,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
+                onMethod = { onSwipe(HomeSwipe.Axis.METHOD, it) },
+                onLabel = { onSwipe(HomeSwipe.Axis.LABEL, it) },
+                modifier = Modifier.weight(1f).fillMaxWidth().guideTarget(targets, GuideTarget.SWIPE_AREA),
             )
 
             DescriptionField(
                 vm = vm,
                 voice = rememberVoiceInput(voiceLanguage, vm::setDescriptionFromVoice),
+                locked = touring,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
-                    .onGloballyPositioned { bounds.field = it },
+                    .onGloballyPositioned { bounds.field = it }
+                    .guideTarget(targets, GuideTarget.DESCRIPTION),
             )
 
-            Numpad(onKey = { key -> focus.clearFocus(); vm.onKey(key) })
+            Numpad(
+                onKey = { key -> if (!touring) { focus.clearFocus(); vm.onKey(key) } },
+                modifier = Modifier.guideTarget(targets, GuideTarget.NUMPAD, part = 0),
+            )
             Button(
-                onClick = { focus.clearFocus(); vm.enter() },
+                onClick = { if (!touring) { focus.clearFocus(); vm.enter() } },
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 16.dp)
+                    .guideTarget(targets, GuideTarget.NUMPAD, part = 1)
                     .height(58.dp),
             ) { Text("Enter", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
         }
@@ -211,6 +265,15 @@ fun HomeScreen(
             snackbar,
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp),
         )
+        tourStep?.let { step ->
+            CoachOverlay(
+                step = step,
+                targets = targets,
+                onNext = guide::next,
+                onSkip = guide::skip,
+                onSwipe = { onSwipe(it.axis, it.delta) },
+            )
+        }
     }
 }
 
@@ -228,7 +291,7 @@ private fun SwipeArea(
     Column(
         modifier
             .pointerInput(Unit) {
-                val threshold = SwipeThreshold.toPx()
+                val threshold = HomeSwipeThreshold.toPx()
                 var total = Offset.Zero
                 detectDragGestures(
                     onDragStart = { total = Offset.Zero },
@@ -320,7 +383,13 @@ private fun Hint(text: String, size: Int) {
 
 /** "What did you buy?" box with the voice mic (hidden when the phone has no recognizer). */
 @Composable
-private fun DescriptionField(vm: HomeViewModel, voice: (() -> Unit)?, modifier: Modifier = Modifier) {
+private fun DescriptionField(
+    vm: HomeViewModel,
+    voice: (() -> Unit)?,
+    /** True during the tour: the box can't be focused or edited and the mic does nothing. */
+    locked: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val colors = GastosTheme.colors
     val focus = LocalFocusManager.current
     val resets by vm.descriptionResets.collectAsStateWithLifecycle()
@@ -339,12 +408,13 @@ private fun DescriptionField(vm: HomeViewModel, voice: (() -> Unit)?, modifier: 
         },
         placeholder = { Text("What did you buy?", color = colors.muted) },
         singleLine = true,
+        readOnly = locked,
         shape = RoundedCornerShape(12.dp),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
         trailingIcon = voice?.let { launch ->
             {
-                IconButton(onClick = { focus.clearFocus(); launch() }) {
+                IconButton(onClick = { if (!locked) { focus.clearFocus(); launch() } }) {
                     Icon(Icons.Filled.Mic, contentDescription = "Speak description", tint = colors.muted)
                 }
             }
@@ -358,6 +428,6 @@ private fun DescriptionField(vm: HomeViewModel, voice: (() -> Unit)?, modifier: 
             unfocusedTextColor = colors.fg,
             cursorColor = colors.accent,
         ),
-        modifier = modifier,
+        modifier = modifier.focusProperties { canFocus = !locked },
     )
 }

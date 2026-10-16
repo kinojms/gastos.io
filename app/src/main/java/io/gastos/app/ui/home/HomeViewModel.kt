@@ -63,6 +63,8 @@ class HomeViewModel(
     private val prefs: AppPrefs,
     /** Emits the current date, and again whenever it changes (midnight rollover). */
     dates: Flow<LocalDate> = dateTicker(expenses),
+    /** True while the guided tour runs; typing and Enter are ignored then so the tour never saves. */
+    private val tourActive: () -> Boolean = { false },
     /** Persists the shared last-used payment method; the app wires this to also refresh the widget. */
     private val setLastMethod: suspend (Long) -> Unit = prefs::setLastPaymentMethodId,
     /** Persists the shared last-used label; the app wires this to also refresh the widget. */
@@ -122,6 +124,7 @@ class HomeViewModel(
     )
 
     fun onKey(key: Key) {
+        if (tourActive()) return
         input.value = AmountInput.apply(input.value, key)
     }
 
@@ -167,6 +170,7 @@ class HomeViewModel(
     }
 
     fun enter() {
+        if (tourActive()) return
         val cents = AmountInput.toCentavos(input.value) ?: return
         val shown = state.value
         val label = shown.label ?: return

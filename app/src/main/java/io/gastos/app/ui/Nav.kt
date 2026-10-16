@@ -43,6 +43,7 @@ fun GastosNavHost(container: AppContainer) {
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
                 HomeViewModel(
                     container.expenses, container.labels, container.paymentMethods, container.prefs,
+                    tourActive = { container.guide.step.value != null },
                     setLastMethod = container::setLastPaymentMethod,
                     setLastLabel = container::setLastLabel,
                 ) as T
@@ -78,6 +79,7 @@ fun GastosNavHost(container: AppContainer) {
         composable(Routes.HOME) {
             HomeScreen(
                 vm = viewModel<HomeViewModel>(factory = homeFactory),
+                guide = container.guide,
                 onOpenExpenses = { nav.navigate(Routes.EXPENSES) },
                 onOpenLabels = { nav.navigate(Routes.LABELS) },
                 onOpenMethods = { nav.navigate(Routes.METHODS) },
