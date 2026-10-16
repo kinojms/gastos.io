@@ -57,6 +57,7 @@ fun HomeScreen(
     vm: HomeViewModel,
     onOpenExpenses: () -> Unit,
     onOpenLabels: () -> Unit,
+    onOpenMethods: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -94,6 +95,7 @@ fun HomeScreen(
                     ) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(text = { Text("Labels") }, onClick = { menu = false; onOpenLabels() })
+                        DropdownMenuItem(text = { Text("Payment methods") }, onClick = { menu = false; onOpenMethods() })
                         DropdownMenuItem(text = { Text("Settings") }, onClick = { menu = false; onOpenSettings() })
                     }
                 }

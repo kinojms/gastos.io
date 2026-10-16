@@ -16,6 +16,14 @@ class ConfirmCopyTest {
         assertEquals("Save new label order?", ConfirmCopy.reorderLabels())
     }
 
+    @Test fun methodCopy() {
+        assertEquals("Add payment method Wise?", ConfirmCopy.addMethod("Wise"))
+        assertEquals("Rename GCash to G?", ConfirmCopy.renameMethod("GCash", "G"))
+        assertEquals("Change color of GCash?", ConfirmCopy.recolorMethod("GCash"))
+        assertEquals("Save new payment method order?", ConfirmCopy.reorderMethods())
+        assertEquals("Delete BDO? Past expenses keep it.", ConfirmCopy.deleteMethod("BDO"))
+    }
+
     @Test fun deleteLabelCounts() {
         assertEquals("Delete label Pets?", ConfirmCopy.deleteLabel("Pets", 0))
         assertEquals("Delete label Pets? 1 expense moves to Other.", ConfirmCopy.deleteLabel("Pets", 1))

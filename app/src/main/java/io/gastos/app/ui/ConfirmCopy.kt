@@ -15,6 +15,11 @@ object ConfirmCopy {
         1 -> "Delete label $name? 1 expense moves to Other."
         else -> "Delete label $name? $count expenses move to Other."
     }
+    fun addMethod(name: String) = "Add payment method $name?"
+    fun renameMethod(old: String, new: String) = "Rename $old to $new?"
+    fun recolorMethod(name: String) = "Change color of $name?"
+    fun reorderMethods() = "Save new payment method order?"
+    fun deleteMethod(name: String) = "Delete $name? Past expenses keep it."
     fun restore() = "Restore from GitHub? This replaces all data on this phone."
     fun startFresh() = "Start fresh? Any existing backup in the repo will be replaced with this phone's data."
     fun saveBackupSettings() = "Save backup settings?"

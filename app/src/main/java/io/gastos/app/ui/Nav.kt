@@ -18,6 +18,8 @@ import io.gastos.app.ui.home.HomeScreen
 import io.gastos.app.ui.home.HomeViewModel
 import io.gastos.app.ui.labels.LabelsScreen
 import io.gastos.app.ui.labels.LabelsViewModel
+import io.gastos.app.ui.methods.PaymentMethodsScreen
+import io.gastos.app.ui.methods.PaymentMethodsViewModel
 import io.gastos.app.ui.settings.SettingsScreen
 import io.gastos.app.ui.settings.SettingsViewModel
 
@@ -26,6 +28,7 @@ object Routes {
     const val EXPENSES = "expenses"
     const val DAY = "day/{isoDate}"
     const val LABELS = "labels"
+    const val METHODS = "methods"
     const val SETTINGS = "settings"
 
     fun day(isoDate: String) = "day/$isoDate"
@@ -57,6 +60,12 @@ fun GastosNavHost(container: AppContainer) {
             override fun <T : ViewModel> create(modelClass: Class<T>): T = LabelsViewModel(container.labels) as T
         }
     }
+    val methodsFactory = remember(container) {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = PaymentMethodsViewModel(container.paymentMethods) as T
+        }
+    }
     val settingsFactory = remember(container) {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -70,6 +79,7 @@ fun GastosNavHost(container: AppContainer) {
                 vm = viewModel<HomeViewModel>(factory = homeFactory),
                 onOpenExpenses = { nav.navigate(Routes.EXPENSES) },
                 onOpenLabels = { nav.navigate(Routes.LABELS) },
+                onOpenMethods = { nav.navigate(Routes.METHODS) },
                 onOpenSettings = { nav.navigate(Routes.SETTINGS) },
             )
         }
@@ -95,6 +105,9 @@ fun GastosNavHost(container: AppContainer) {
         }
         composable(Routes.LABELS) {
             LabelsScreen(vm = viewModel<LabelsViewModel>(factory = labelsFactory), onBack = { nav.popBackStack() })
+        }
+        composable(Routes.METHODS) {
+            PaymentMethodsScreen(vm = viewModel<PaymentMethodsViewModel>(factory = methodsFactory), onBack = { nav.popBackStack() })
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(
