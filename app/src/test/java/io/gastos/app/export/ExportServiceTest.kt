@@ -43,4 +43,25 @@ class ExportServiceTest {
         val lines = String(File(ctx.cacheDir, "exports/${r.fileName}").readBytes(), 3, File(ctx.cacheDir, "exports/${r.fileName}").length().toInt() - 3, Charsets.UTF_8).lines()
         assertEquals(listOf("08:00", "12:00", "18:00"), lines.drop(1).take(3).map { it.split(",")[1] })
     }
+
+    @Test fun monthXlsxColumnsFitContent() = runBlocking {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val repo = ExpenseRepository(db, Clock.system(manila), { manila }) { }
+        val labels = io.gastos.app.data.LabelRepository(db) { }
+        labels.add("Weekend groceries run", 0)
+        val long = labels.all().first { it.name == "Weekend groceries run" }
+        val d = LocalDate.of(2026, 10, 16)
+        val id = repo.add(1_234_567_89, long.id)
+        repo.update(id, 1_234_567_89, long.id, d.atTime(9, 0).atZone(manila).toInstant().toEpochMilli())
+        val r = ExportService(ctx, repo, { manila }, { android.net.Uri.fromFile(it) })
+            .exportMonthFile(java.time.YearMonth.from(d), Format.XLSX)
+        val parts = HashMap<String, String>()
+        java.util.zip.ZipInputStream(File(ctx.cacheDir, "exports/${r.fileName}").inputStream()).use { z ->
+            while (true) { val e = z.nextEntry ?: break; parts[e.name] = String(z.readBytes(), Charsets.UTF_8) }
+        }
+        fun widths(xml: String) = Regex("""<col min="\d+" max="\d+" width="([0-9.]+)"""").findAll(xml).map { it.groupValues[1] }.toList()
+        // Expenses: date 10, "Time" 4 vs "09:00" 5, label 21, "₱1,234,567.89" 13; each + 2.
+        assertEquals(listOf("12.0", "7.0", "23.0", "15.0"), widths(parts.getValue("xl/worksheets/sheet1.xml")))
+        assertEquals(listOf("23.0", "15.0"), widths(parts.getValue("xl/worksheets/sheet2.xml")))
+    }
 }

@@ -64,7 +64,6 @@ class ExportService(
             rows = byLabel.map { listOf(Cell.Text(it.first), Cell.Peso(it.second)) },
             totalLabelCol = 0,
             sumCols = listOf(1),
-            colWidths = listOf(22.0, 14.0),
         )
         return XlsxWriter.write(listOf(expensesSheet(rows), labelSheet))
     }
@@ -81,7 +80,6 @@ class ExportService(
             },
             totalLabelCol = 2,
             sumCols = listOf(3),
-            colWidths = listOf(12.0, 8.0, 22.0, 14.0),
         )
     }
 

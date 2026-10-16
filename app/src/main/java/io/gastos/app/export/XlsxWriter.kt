@@ -20,7 +20,6 @@ object XlsxWriter {
         val rows: List<List<Cell>>,
         val totalLabelCol: Int,
         val sumCols: List<Int>,
-        val colWidths: List<Double>,
     )
 
     // Style indexes in cellXfs.
@@ -34,6 +33,29 @@ object XlsxWriter {
     private const val XML = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"""
     private const val NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     private const val REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
+    /**
+     * Auto-sized column widths (in characters): the longest of the header, every cell and the total row,
+     * plus 2 for padding. Dates count as 10 (yyyy-mm-dd) and amounts as their ₱-formatted text.
+     */
+    fun autoWidths(s: Sheet): List<Double> {
+        val cols = maxOf(s.header.size, s.rows.maxOfOrNull { it.size } ?: 0)
+        return List(cols) { c ->
+            var longest = s.header.getOrNull(c)?.length ?: 0
+            for (row in s.rows) longest = maxOf(longest, row.getOrNull(c)?.let(::displayLength) ?: 0)
+            if (c == s.totalLabelCol) longest = maxOf(longest, "Total".length)
+            if (c in s.sumCols) longest = maxOf(longest, Money.format(sumOf(s, c)).length)
+            (longest + 2).toDouble()
+        }
+    }
+
+    private fun displayLength(cell: Cell): Int = when (cell) {
+        is Cell.Text -> cell.s.length
+        is Cell.Peso -> Money.format(cell.centavos).length
+        is Cell.Date -> 10
+    }
+
+    private fun sumOf(s: Sheet, c: Int): Long = s.rows.sumOf { (it.getOrNull(c) as? Cell.Peso)?.centavos ?: 0L }
 
     fun write(sheets: List<Sheet>): ByteArray {
         val bos = ByteArrayOutputStream()
@@ -104,9 +126,10 @@ object XlsxWriter {
     private fun sheet(s: Sheet) = buildString {
         append(XML)
         append("""<worksheet xmlns="$NS"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews>""")
-        if (s.colWidths.isNotEmpty()) {
+        val widths = autoWidths(s)
+        if (widths.isNotEmpty()) {
             append("<cols>")
-            s.colWidths.forEachIndexed { i, w -> append("""<col min="${i + 1}" max="${i + 1}" width="$w" customWidth="1"/>""") }
+            widths.forEachIndexed { i, w -> append("""<col min="${i + 1}" max="${i + 1}" width="$w" customWidth="1"/>""") }
             append("</cols>")
         }
         append("<sheetData>")
@@ -132,7 +155,7 @@ object XlsxWriter {
             if (c == s.totalLabelCol) {
                 append(textCell(ref(c, tr), "Total", S_TOTAL_TEXT))
             } else {
-                val sum = s.rows.sumOf { (it.getOrNull(c) as? Cell.Peso)?.centavos ?: 0L }
+                val sum = sumOf(s, c)
                 val col = colName(c)
                 val v = Money.plain(sum)
                 if (s.rows.isEmpty()) {

@@ -33,7 +33,6 @@ class XlsxWriterTest {
         },
         totalLabelCol = 2,
         sumCols = listOf(3),
-        colWidths = listOf(12.0, 8.0, 22.0, 14.0),
     )
 
     @Test fun xlsxIsValidZipWithParts() {
@@ -63,7 +62,7 @@ class XlsxWriterTest {
     }
 
     @Test fun xlsxMonthlyHasTwoSheets() {
-        val by = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("Food"), Cell.Peso(100))), 0, listOf(1), listOf(22.0, 14.0))
+        val by = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("Food"), Cell.Peso(100))), 0, listOf(1))
         val parts = unzip(XlsxWriter.write(listOf(expensesSheet(), by)))
         val wb = parts.getValue("xl/workbook.xml")
         assertTrue(wb.contains("name=\"Expenses\"") && wb.contains("name=\"By label\""))
@@ -74,6 +73,31 @@ class XlsxWriterTest {
         val sheet = unzip(XlsxWriter.write(listOf(expensesSheet(rows = 0)))).getValue("xl/worksheets/sheet1.xml")
         assertTrue(sheet.contains("<v>0.00</v>"))
         assertTrue(!sheet.contains("<f>"))
+    }
+
+    @Test fun columnsAreAutoSizedToContent() {
+        val s = Sheet(
+            name = "Expenses",
+            header = listOf("Date", "Time", "Label", "Amount"),
+            rows = listOf(
+                listOf(Cell.Date(LocalDate.of(2026, 10, 16)), Cell.Text("08:10"), Cell.Text("Groceries and more"), Cell.Peso(123_456_78)),
+                listOf(Cell.Date(LocalDate.of(2026, 10, 16)), Cell.Text("09:00"), Cell.Text("Food"), Cell.Peso(4550)),
+            ),
+            totalLabelCol = 2,
+            sumCols = listOf(3),
+        )
+        // Longest text + 2: dates count as 10, "08:10" (5) beats "Time" (4), "Groceries and more" (18),
+        // and the total "₱123,502.28" (11) beats every row amount.
+        assertEquals(listOf(12.0, 7.0, 20.0, 13.0), XlsxWriter.autoWidths(s))
+        val sheet = unzip(XlsxWriter.write(listOf(s))).getValue("xl/worksheets/sheet1.xml")
+        assertTrue(sheet.contains("""<col min="3" max="3" width="20.0" customWidth="1"/>"""))
+        assertTrue(sheet.contains("""<col min="4" max="4" width="13.0" customWidth="1"/>"""))
+    }
+
+    @Test fun headerWidensNarrowColumns() {
+        val s = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("Gym"), Cell.Peso(100))), 0, listOf(1))
+        // "Label" (5) > "Total"/"Gym"; "Amount" (6) > "₱1.00" (5).
+        assertEquals(listOf(7.0, 8.0), XlsxWriter.autoWidths(s))
     }
 
     @Test fun fileNames() {
@@ -92,7 +116,7 @@ class XlsxWriterTest {
     }
 
     @Test fun xlsxPackageIsWellFormedAndConsistent() {
-        val by = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("  leading & <b>"), Cell.Peso(100))), 0, listOf(1), listOf(22.0, 14.0))
+        val by = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("  leading & <b>"), Cell.Peso(100))), 0, listOf(1))
         val parts = unzip(XlsxWriter.write(listOf(expensesSheet("  a\u0001b\u000Bc label"), by)))
         val docs = parts.mapValues { parse(it.value) }
 
