@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import io.gastos.app.ui.theme.ThemeId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -57,6 +58,15 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         store.edit { if (message == null) it.remove(LAST_BACKUP_ERROR) else it[LAST_BACKUP_ERROR] = message }
     }
 
+    /** Device-local theme choice; missing or unknown values fall back to Classic. */
+    val themeId: Flow<ThemeId> = store.data.map { prefs ->
+        ThemeId.values().firstOrNull { it.name == prefs[THEME_ID] } ?: ThemeId.CLASSIC
+    }
+
+    suspend fun setThemeId(id: ThemeId) {
+        store.edit { it[THEME_ID] = id.name }
+    }
+
     /** Last-used label if it still exists, else the first by position. */
     suspend fun resolveLabel(labels: List<LabelEntity>): LabelEntity {
         val last = lastLabelId.first()
@@ -70,6 +80,7 @@ class AppPrefs(private val store: DataStore<Preferences>) {
     }
 
     private companion object {
+        val THEME_ID = stringPreferencesKey("theme_id")
         val LAST_LABEL_ID = longPreferencesKey("last_label_id")
         val LAST_PAYMENT_METHOD_ID = longPreferencesKey("last_payment_method_id")
         val BACKUP_REPO = stringPreferencesKey("backup_repo")

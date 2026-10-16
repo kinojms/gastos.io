@@ -10,6 +10,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 
 @Immutable
 data class GastosColors(
@@ -22,7 +23,23 @@ data class GastosColors(
     val accent: Color,
     val key: Color,
     val danger: Color,
-)
+    val onAccent: Color,
+) {
+    companion object {
+        fun from(id: ThemeId, dark: Boolean): GastosColors {
+            if (id == ThemeId.CLASSIC) return if (dark) DarkGastosColors else LightGastosColors
+            val p = Palettes.of(id, dark)
+            return GastosColors(
+                bg = p.bg, surface = p.surface,
+                surface2 = lerp(p.bg, p.surface, 0.5f),
+                fg = p.fg, muted = p.muted, line = p.line, accent = p.accent,
+                key = p.surface,
+                danger = if (dark) Color(0xFFEF6B55) else Color(0xFFC2412D),
+                onAccent = p.onAccent,
+            )
+        }
+    }
+}
 
 val LightGastosColors = GastosColors(
     bg = Color(0xFFEEF1F4),
@@ -34,6 +51,7 @@ val LightGastosColors = GastosColors(
     accent = Color(0xFFE8A317),
     key = Color(0xFFE9EDF2),
     danger = Color(0xFFC2412D),
+    onAccent = Color(0xFF1C1300),
 )
 
 val DarkGastosColors = GastosColors(
@@ -46,6 +64,7 @@ val DarkGastosColors = GastosColors(
     accent = Color(0xFFF2B33A),
     key = Color(0xFF222D3A),
     danger = Color(0xFFEF6B55),
+    onAccent = Color(0xFF1C1300),
 )
 
 val LocalGastosColors = staticCompositionLocalOf { LightGastosColors }
@@ -57,12 +76,12 @@ object GastosTheme {
 }
 
 @Composable
-fun GastosTheme(content: @Composable () -> Unit) {
+fun GastosTheme(themeId: ThemeId = ThemeId.CLASSIC, content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
-    val c = if (dark) DarkGastosColors else LightGastosColors
+    val c = GastosColors.from(themeId, dark)
     val scheme = if (dark) {
         darkColorScheme(
-            primary = c.accent, onPrimary = c.bg,
+            primary = c.accent, onPrimary = c.onAccent,
             background = c.bg, onBackground = c.fg,
             surface = c.surface, onSurface = c.fg,
             surfaceVariant = c.surface2, onSurfaceVariant = c.muted,
@@ -70,7 +89,7 @@ fun GastosTheme(content: @Composable () -> Unit) {
         )
     } else {
         lightColorScheme(
-            primary = c.accent, onPrimary = c.fg,
+            primary = c.accent, onPrimary = c.onAccent,
             background = c.bg, onBackground = c.fg,
             surface = c.surface, onSurface = c.fg,
             surfaceVariant = c.surface2, onSurfaceVariant = c.muted,
