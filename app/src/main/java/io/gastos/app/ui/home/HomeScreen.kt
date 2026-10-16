@@ -79,7 +79,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val dateFormat = DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH)
-private val AccentInk = Color(0xFF1C1300)
 private val SwipeThreshold = 48.dp
 private const val TINT_LIGHT = 0.20f
 private const val TINT_DARK = 0.26f
@@ -201,7 +200,7 @@ fun HomeScreen(
             Button(
                 onClick = { focus.clearFocus(); vm.enter() },
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = AccentInk),
+                colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 16.dp)

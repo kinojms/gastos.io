@@ -34,4 +34,16 @@ class PalettesTest {
             assertTrue("$id dark=$dark onAccent/accent $b", b >= 4.5)
         }
     }
+
+    @Test fun mutedReadableOnBg() {
+        for (id in ThemeId.values()) for (dark in listOf(false, true)) {
+            val p = Palettes.of(id, dark)
+            val r = contrastRatio(p.muted, p.bg)
+            assertTrue("$id dark=$dark muted/bg $r", r >= 4.5)
+        }
+    }
+
+    @Test fun contrastBlackWhiteIs21() {
+        assertEquals(21.0, contrastRatio(Color.Black, Color.White), 0.01)
+    }
 }

@@ -39,7 +39,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -67,7 +66,6 @@ import java.util.Locale
 
 private val dateFormat = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH)
 private val timeFormat = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
-private val AccentInk = Color(0xFF1C1300)
 
 /** Rebuilds [raw] through [AmountInput] so typed/pasted text obeys the same rules as the numpad. */
 internal fun sanitizeAmount(raw: String): String =
@@ -195,7 +193,7 @@ fun EditExpenseSheet(
                 Button(
                     onClick = { confirmSave = true },
                     enabled = cents != null,
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = AccentInk),
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
                     modifier = Modifier.weight(1f),
                 ) { Text("Save", fontWeight = FontWeight.Bold) }
             }

@@ -188,7 +188,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenLabels: () -
             Button(
                 onClick = { if (vm.validate()) confirm = Confirm.SAVE },
                 enabled = !busy,
-                colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.bg),
+                colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Save", fontWeight = FontWeight.SemiBold) }
 

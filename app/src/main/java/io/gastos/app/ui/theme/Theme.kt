@@ -85,6 +85,9 @@ fun GastosTheme(themeId: ThemeId = ThemeId.CLASSIC, content: @Composable () -> U
             background = c.bg, onBackground = c.fg,
             surface = c.surface, onSurface = c.fg,
             surfaceVariant = c.surface2, onSurfaceVariant = c.muted,
+            surfaceContainerLowest = c.surface, surfaceContainerLow = c.surface, surfaceContainer = c.surface,
+            surfaceContainerHigh = c.surface2, surfaceContainerHighest = c.surface2,
+            inverseSurface = c.fg, inverseOnSurface = c.bg, inversePrimary = c.accent,
             outline = c.line, error = c.danger,
         )
     } else {
@@ -93,6 +96,9 @@ fun GastosTheme(themeId: ThemeId = ThemeId.CLASSIC, content: @Composable () -> U
             background = c.bg, onBackground = c.fg,
             surface = c.surface, onSurface = c.fg,
             surfaceVariant = c.surface2, onSurfaceVariant = c.muted,
+            surfaceContainerLowest = c.surface, surfaceContainerLow = c.surface, surfaceContainer = c.surface,
+            surfaceContainerHigh = c.surface2, surfaceContainerHighest = c.surface2,
+            inverseSurface = c.fg, inverseOnSurface = c.bg, inversePrimary = c.accent,
             outline = c.line, error = c.danger,
         )
     }

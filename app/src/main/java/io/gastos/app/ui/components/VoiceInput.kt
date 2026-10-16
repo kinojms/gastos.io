@@ -5,7 +5,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -28,8 +27,7 @@ object VoiceInput {
             .putExtra(RecognizerIntent.EXTRA_PROMPT, "What did you buy?")
 
     fun isAvailable(context: Context): Boolean = try {
-        intent(VoiceLanguage.ENGLISH).resolveActivity(context.packageManager) != null ||
-            SpeechRecognizer.isRecognitionAvailable(context)
+        intent(VoiceLanguage.ENGLISH).resolveActivity(context.packageManager) != null
     } catch (e: RuntimeException) {
         false
     }
