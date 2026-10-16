@@ -1,6 +1,5 @@
 package io.gastos.app.ui
 
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -19,6 +18,8 @@ import io.gastos.app.ui.home.HomeScreen
 import io.gastos.app.ui.home.HomeViewModel
 import io.gastos.app.ui.labels.LabelsScreen
 import io.gastos.app.ui.labels.LabelsViewModel
+import io.gastos.app.ui.settings.SettingsScreen
+import io.gastos.app.ui.settings.SettingsViewModel
 
 object Routes {
     const val HOME = "home"
@@ -53,6 +54,13 @@ fun GastosNavHost(container: AppContainer) {
             override fun <T : ViewModel> create(modelClass: Class<T>): T = LabelsViewModel(container.labels) as T
         }
     }
+    val settingsFactory = remember(container) {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                SettingsViewModel(container.prefs, container.tokens, container.backupManager) as T
+        }
+    }
     NavHost(nav, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
@@ -85,6 +93,12 @@ fun GastosNavHost(container: AppContainer) {
         composable(Routes.LABELS) {
             LabelsScreen(vm = viewModel<LabelsViewModel>(factory = labelsFactory), onBack = { nav.popBackStack() })
         }
-        composable(Routes.SETTINGS) { Text("Settings") }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
+                vm = viewModel<SettingsViewModel>(factory = settingsFactory),
+                onBack = { nav.popBackStack() },
+                onOpenLabels = { nav.navigate(Routes.LABELS) },
+            )
+        }
     }
 }
