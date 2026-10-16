@@ -92,8 +92,8 @@ class XlsxWriterTest {
     }
 
     @Test fun xlsxPackageIsWellFormedAndConsistent() {
-        val by = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("  leading & <b>"), Cell.Peso(100))), 0, listOf(1), listOf(22.0, 14.0))
-        val parts = unzip(XlsxWriter.write(listOf(expensesSheet("  spaced label"), by)))
+        val by = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("  leading & <b>"), Cell.Peso(100))), 0, listOf(1), listOf(22.0, 14.0))
+        val parts = unzip(XlsxWriter.write(listOf(expensesSheet("  a\u0001b\u000Bc label"), by)))
         val docs = parts.mapValues { parse(it.value) }
 
         // styles counts match children
@@ -125,6 +125,7 @@ class XlsxWriterTest {
 
         // control chars removed, leading spaces preserved
         val sheet1 = parts.getValue("xl/worksheets/sheet1.xml")
-        assertTrue(sheet1.contains("xml:space=\"preserve\">  spaced label<"))
+        assertTrue(sheet1.contains("xml:space=\"preserve\">  abc label<"))
+        assertTrue(parts.values.none { p -> p.any { it == '\u0001' || it == '\u000B' } })
     }
 }
