@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -77,6 +78,13 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         store.edit { it[VOICE_LANGUAGE] = v.name }
     }
 
+    /** Highest guided-tour version the user has seen or skipped; 0 when never. */
+    val guideSeenVersion: Flow<Int> = store.data.map { it[GUIDE_SEEN_VERSION] ?: 0 }
+
+    suspend fun setGuideSeenVersion(v: Int) {
+        store.edit { it[GUIDE_SEEN_VERSION] = v }
+    }
+
     /** Last-used label if it still exists, else the first by position. */
     suspend fun resolveLabel(labels: List<LabelEntity>): LabelEntity {
         val last = lastLabelId.first()
@@ -91,6 +99,7 @@ class AppPrefs(private val store: DataStore<Preferences>) {
 
     private companion object {
         val VOICE_LANGUAGE = stringPreferencesKey("voice_language")
+        val GUIDE_SEEN_VERSION = intPreferencesKey("guide_seen_version")
         val THEME_ID = stringPreferencesKey("theme_id")
         val LAST_LABEL_ID = longPreferencesKey("last_label_id")
         val LAST_PAYMENT_METHOD_ID = longPreferencesKey("last_payment_method_id")

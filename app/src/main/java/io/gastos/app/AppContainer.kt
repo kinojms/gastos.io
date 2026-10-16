@@ -13,6 +13,7 @@ import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelRepository
 import io.gastos.app.data.PaymentMethodRepository
 import io.gastos.app.export.ExportService
+import io.gastos.app.ui.guide.GuideController
 import io.gastos.app.widget.GastosWidget
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,7 @@ class AppContainer(context: Context) {
 
     val db: GastosDatabase = GastosDatabase.create(context)
     val prefs: AppPrefs = AppPrefs(context)
+    val guide: GuideController = GuideController(prefs, appScope)
     val expenses: ExpenseRepository =
         ExpenseRepository(db, Clock.systemUTC(), { ZoneId.systemDefault() }, ::onDataChanged)
     val labels: LabelRepository = LabelRepository(db, ::onDataChanged)
