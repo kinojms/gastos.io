@@ -331,3 +331,5 @@
 - [ ] **Step 3:** Run `./gradlew testDebugUnitTest assembleRelease` — Expected: all tests pass, `app/build/outputs/apk/release/app-release.apk` exists.
 - [ ] **Step 4:** Confirm `git status` shows no `.jks`, `keystore.properties`, or `local.properties`.
 - [ ] **Step 5:** Commit: `git commit -m "Add release signing, icon, and install guide"`
+- [ ] **Step 6:** Set `versionName = "1.0.0"`, `versionCode = 1`. Copy the APK to `gastos-v1.0.0.apk` and publish: `gh release create v1.0.0 gastos-v1.0.0.apk --title "Gastos.io v1.0.0" --notes "First release."` (no Claude attribution in notes). Expected: `gh release view v1.0.0` lists the APK asset. Future releases bump `versionCode`/`versionName` and repeat with the same signing key.
+- [ ] **Step 7:** README install section points to the repo's Releases page (owner must be logged into GitHub on the phone, since the repo is private).
