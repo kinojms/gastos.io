@@ -27,9 +27,10 @@ import io.gastos.app.ui.theme.GastosTheme
 
 @Composable
 fun MonthTab(vm: ExpensesViewModel, modifier: Modifier = Modifier) {
-    val colors = GastosTheme.colors
     val month by vm.month.collectAsState()
     val byLabel by vm.monthByLabel.collectAsState()
+    val byMethod by vm.methodTotals.collectAsState()
+    val methodMax = byMethod.maxOfOrNull { it.totalCentavos } ?: 0L
     val total = byLabel.sumOf { it.totalCentavos }
     val max = byLabel.maxOfOrNull { it.totalCentavos } ?: 0L
 
@@ -43,22 +44,34 @@ fun MonthTab(vm: ExpensesViewModel, modifier: Modifier = Modifier) {
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            SectionTitle("By label")
             byLabel.sortedByDescending { it.totalCentavos }.forEach { lt ->
-                Column {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(lt.name, fontSize = 13.sp)
-                        Text(Money.format(lt.totalCentavos), fontSize = 13.sp)
-                    }
-                    Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(99.dp)).background(colors.surface2)) {
-                        val frac = if (max > 0) lt.totalCentavos.toFloat() / max else 0f
-                        Box(
-                            Modifier.fillMaxWidth(frac).fillMaxHeight()
-                                .clip(RoundedCornerShape(99.dp)).background(Color(lt.colorArgb)),
-                        )
-                    }
-                }
+                TotalBar(lt.name, lt.totalCentavos, max, Color(lt.colorArgb))
+            }
+            SectionTitle("By payment method")
+            byMethod.sortedByDescending { it.totalCentavos }.forEach { mt ->
+                TotalBar(mt.name, mt.totalCentavos, methodMax, Color(mt.colorArgb))
             }
         }
         ExportButtons(Modifier.padding(16.dp)) { format -> vm.exportMonth(month, format) }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = GastosTheme.colors.muted)
+}
+
+@Composable
+private fun TotalBar(name: String, totalCentavos: Long, max: Long, color: Color) {
+    Column {
+        Row(Modifier.fillMaxWidth().padding(bottom = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(name, fontSize = 13.sp)
+            Text(Money.format(totalCentavos), fontSize = 13.sp)
+        }
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(99.dp)).background(GastosTheme.colors.surface2)) {
+            val frac = if (max > 0) totalCentavos.toFloat() / max else 0f
+            Box(Modifier.fillMaxWidth(frac).fillMaxHeight().clip(RoundedCornerShape(99.dp)).background(color))
+        }
     }
 }

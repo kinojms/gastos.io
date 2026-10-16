@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.gastos.app.data.ExpenseRow
@@ -49,6 +50,7 @@ fun DayList(vm: ExpensesViewModel, date: LocalDate, modifier: Modifier = Modifie
     val rows by remember(date) { vm.rowsFor(date) }.collectAsState(initial = emptyList())
     val total by remember(date) { vm.totalFor(date) }.collectAsState(initial = 0L)
     val labels by vm.labels.collectAsState()
+    val voiceLanguage by vm.voiceLanguage.collectAsState()
     var editing by remember { mutableStateOf<ExpenseRow?>(null) }
 
     Column(modifier.fillMaxWidth()) {
@@ -66,12 +68,14 @@ fun DayList(vm: ExpensesViewModel, date: LocalDate, modifier: Modifier = Modifie
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Canvas(Modifier.size(10.dp)) { drawCircle(Color(row.labelColor)) }
+                        Canvas(Modifier.size(10.dp)) { drawCircle(Color(row.paymentMethodColor)) }
                         Column(Modifier.weight(1f)) {
-                            Text(row.labelName, fontSize = 15.sp)
+                            Text(RowText.title(row), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
-                                Instant.ofEpochMilli(row.timestamp).atZone(ZoneId.systemDefault()).format(timeFormat),
-                                fontSize = 12.sp, color = colors.muted,
+                                RowText.subtitle(
+                                    row, Instant.ofEpochMilli(row.timestamp).atZone(ZoneId.systemDefault()).format(timeFormat),
+                                ),
+                                fontSize = 12.sp, color = colors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
                         }
                         Text(Money.format(row.amountCentavos), fontWeight = FontWeight.SemiBold)
@@ -84,12 +88,16 @@ fun DayList(vm: ExpensesViewModel, date: LocalDate, modifier: Modifier = Modifie
     }
 
     editing?.let { row ->
+        val methods by remember(row.paymentMethodId) { vm.pickerMethods(row.paymentMethodId) }
+            .collectAsState(initial = emptyList())
         EditExpenseSheet(
             row = row,
             labels = labels,
+            methods = methods,
+            voiceLanguage = voiceLanguage,
             zone = ZoneId.systemDefault(),
-            onSave = { amount, labelId, d, t ->
-                vm.saveEdit(row.id, amount, labelId, row.paymentMethodId, d, t, row.description, row.notes)
+            onSave = { amount, labelId, methodId, d, t, description, notes ->
+                vm.saveEdit(row.id, amount, labelId, methodId, d, t, description, notes)
             },
             onDelete = { vm.delete(row.id) },
             onDismiss = { editing = null },

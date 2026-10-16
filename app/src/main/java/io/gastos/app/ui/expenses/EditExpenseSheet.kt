@@ -6,9 +6,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -17,6 +22,8 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,16 +41,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.gastos.app.data.ExpenseRow
 import io.gastos.app.data.LabelEntity
+import io.gastos.app.data.PaymentMethodEntity
 import io.gastos.app.domain.AmountInput
+import io.gastos.app.domain.ExpenseText
 import io.gastos.app.domain.Key
 import io.gastos.app.domain.Money
 import io.gastos.app.ui.ConfirmCopy
 import io.gastos.app.ui.components.ConfirmDialog
+import io.gastos.app.ui.components.VoiceLanguage
+import io.gastos.app.ui.components.rememberVoiceInput
 import io.gastos.app.ui.theme.GastosTheme
 import java.time.Instant
 import java.time.LocalDate
@@ -72,8 +84,13 @@ internal fun sanitizeAmount(raw: String): String =
 fun EditExpenseSheet(
     row: ExpenseRow,
     labels: List<LabelEntity>,
+    methods: List<PaymentMethodEntity>,
+    voiceLanguage: VoiceLanguage,
     zone: ZoneId,
-    onSave: (amountCentavos: Long, labelId: Long, date: LocalDate, time: LocalTime) -> Unit,
+    onSave: (
+        amountCentavos: Long, labelId: Long, paymentMethodId: Long, date: LocalDate, time: LocalTime,
+        description: String?, notes: String?,
+    ) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -81,9 +98,13 @@ fun EditExpenseSheet(
     val initial = remember(row) { Instant.ofEpochMilli(row.timestamp).atZone(zone) }
     var amountText by remember(row) { mutableStateOf(Money.plain(row.amountCentavos)) }
     var labelId by remember(row) { mutableStateOf(row.labelId) }
+    var methodId by remember(row) { mutableStateOf(row.paymentMethodId) }
+    var description by remember(row) { mutableStateOf(row.description.orEmpty()) }
+    var notes by remember(row) { mutableStateOf(row.notes.orEmpty()) }
     var date by remember(row) { mutableStateOf(initial.toLocalDate()) }
     var time by remember(row) { mutableStateOf(initial.toLocalTime().withSecond(0).withNano(0)) }
     var labelMenu by remember { mutableStateOf(false) }
+    var methodMenu by remember { mutableStateOf(false) }
     var pickDate by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf(false) }
     var confirmSave by remember { mutableStateOf(false) }
@@ -91,6 +112,8 @@ fun EditExpenseSheet(
 
     val cents = AmountInput.toCentavos(amountText)
     val labelName = labels.firstOrNull { it.id == labelId }?.name ?: row.labelName
+    val methodName = methods.firstOrNull { it.id == methodId }?.name ?: row.paymentMethodName
+    val voice = rememberVoiceInput(voiceLanguage) { description = it }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -98,7 +121,8 @@ fun EditExpenseSheet(
         containerColor = colors.surface,
     ) {
         Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 4.dp),
+            Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())
+                .navigationBarsPadding().padding(horizontal = 18.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Edit expense", fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -120,6 +144,40 @@ fun EditExpenseSheet(
                     }
                 }
             }
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it.take(ExpenseText.DESCRIPTION_MAX) },
+                label = { Text("What did you buy?") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                trailingIcon = voice?.let { launch ->
+                    {
+                        IconButton(onClick = launch) {
+                            Icon(Icons.Filled.Mic, contentDescription = "Speak description", tint = colors.muted)
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Box {
+                OutlinedButton(onClick = { methodMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Payment: $methodName ▾", color = colors.fg)
+                }
+                DropdownMenu(expanded = methodMenu, onDismissRequest = { methodMenu = false }) {
+                    methods.forEach { m ->
+                        DropdownMenuItem(text = { Text(m.name) }, onClick = { methodId = m.id; methodMenu = false })
+                    }
+                }
+            }
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it.take(ExpenseText.NOTES_MAX) },
+                label = { Text("Notes") },
+                placeholder = { Text("Add notes…") },
+                minLines = 4,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth(),
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { pickDate = true }, modifier = Modifier.weight(1f)) {
                     Text(date.format(dateFormat), color = colors.fg)
@@ -174,7 +232,7 @@ fun EditExpenseSheet(
         ConfirmDialog(
             message = ConfirmCopy.saveExpense(cents, labelName),
             confirmText = "Save",
-            onConfirm = { confirmSave = false; onSave(cents, labelId, date, time); onDismiss() },
+            onConfirm = { confirmSave = false; onSave(cents, labelId, methodId, date, time, ExpenseText.description(description), ExpenseText.notes(notes)); onDismiss() },
             onDismiss = { confirmSave = false },
         )
     }
