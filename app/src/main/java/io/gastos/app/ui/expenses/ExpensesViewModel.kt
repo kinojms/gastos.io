@@ -8,6 +8,9 @@ import io.gastos.app.data.ExpenseRow
 import io.gastos.app.data.LabelEntity
 import io.gastos.app.data.LabelRepository
 import io.gastos.app.data.LabelTotal
+import io.gastos.app.export.ExportResult
+import io.gastos.app.export.ExportService
+import io.gastos.app.export.Format
 import io.gastos.app.ui.home.HomeViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +34,7 @@ class ExpensesViewModel(
     dates: Flow<LocalDate> = HomeViewModel.dateTicker(expenses),
     private val zone: () -> ZoneId = { ZoneId.systemDefault() },
     initialMonth: YearMonth = YearMonth.from(expenses.today()),
+    private val exporter: ExportService? = null,
 ) : ViewModel() {
     private val monthState = MutableStateFlow(initialMonth)
     val month: StateFlow<YearMonth> = monthState
@@ -62,6 +66,12 @@ class ExpensesViewModel(
     fun saveEdit(id: Long, amountCentavos: Long, labelId: Long, date: LocalDate, time: LocalTime) {
         viewModelScope.launch { expenses.update(id, amountCentavos, labelId, timestampOf(date, time)) }
     }
+
+    suspend fun exportDay(date: LocalDate, format: Format): ExportResult =
+        requireNotNull(exporter) { "Export unavailable" }.exportDayFile(date, format)
+
+    suspend fun exportMonth(month: YearMonth, format: Format): ExportResult =
+        requireNotNull(exporter) { "Export unavailable" }.exportMonthFile(month, format)
 
     fun delete(id: Long) {
         viewModelScope.launch { expenses.delete(id) }

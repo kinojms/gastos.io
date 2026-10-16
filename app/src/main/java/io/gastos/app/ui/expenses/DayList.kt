@@ -80,7 +80,7 @@ fun DayList(vm: ExpensesViewModel, date: LocalDate, modifier: Modifier = Modifie
                 }
             }
         }
-        ExportButtons(Modifier.padding(16.dp))
+        ExportButtons(Modifier.padding(16.dp)) { format -> vm.exportDay(date, format) }
     }
 
     editing?.let { row ->
@@ -95,23 +95,3 @@ fun DayList(vm: ExpensesViewModel, date: LocalDate, modifier: Modifier = Modifie
     }
 }
 
-/** Export buttons; disabled until Task 7 wires them. */
-@Composable
-fun ExportButtons(modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ExportButton("Export CSV")
-        ExportButton("Export XLSX")
-    }
-}
-
-@Composable
-private fun RowScope.ExportButton(text: String) {
-    OutlinedButton(
-        onClick = {},
-        enabled = false,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, GastosTheme.colors.line),
-        colors = ButtonDefaults.outlinedButtonColors(containerColor = GastosTheme.colors.surface2, contentColor = GastosTheme.colors.fg),
-        modifier = Modifier.weight(1f).height(42.dp),
-    ) { Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
-}

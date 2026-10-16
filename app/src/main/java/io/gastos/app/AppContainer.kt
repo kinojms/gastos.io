@@ -5,6 +5,7 @@ import io.gastos.app.data.AppPrefs
 import io.gastos.app.data.ExpenseRepository
 import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelRepository
+import io.gastos.app.export.ExportService
 import java.time.Clock
 import java.time.ZoneId
 
@@ -14,6 +15,7 @@ class AppContainer(context: Context) {
     val expenses: ExpenseRepository =
         ExpenseRepository(db, Clock.systemUTC(), { ZoneId.systemDefault() }, ::onDataChanged)
     val labels: LabelRepository = LabelRepository(db, ::onDataChanged)
+    val exportService: ExportService = ExportService(context.applicationContext, expenses)
 
     /** Called after every write. Widget refresh (Task 8) and backup scheduling (Task 9) hook in here. */
     fun onDataChanged() {

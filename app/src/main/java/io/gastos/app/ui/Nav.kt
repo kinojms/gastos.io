@@ -44,7 +44,7 @@ fun GastosNavHost(container: AppContainer) {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                ExpensesViewModel(container.expenses, container.labels) as T
+                ExpensesViewModel(container.expenses, container.labels, exporter = container.exportService) as T
         }
     }
     val labelsFactory = remember(container) {

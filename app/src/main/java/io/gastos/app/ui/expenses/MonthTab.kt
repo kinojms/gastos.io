@@ -59,6 +59,6 @@ fun MonthTab(vm: ExpensesViewModel, modifier: Modifier = Modifier) {
                 }
             }
         }
-        ExportButtons(Modifier.padding(16.dp))
+        ExportButtons(Modifier.padding(16.dp)) { format -> vm.exportMonth(month, format) }
     }
 }
