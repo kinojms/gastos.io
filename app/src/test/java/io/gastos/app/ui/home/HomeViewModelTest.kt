@@ -83,7 +83,7 @@ class HomeViewModelTest {
         listOf(Key.Digit(4), Key.Digit(5), Key.Dot, Key.Digit(5)).forEach(m::onKey)
         m.await { it.input == "45.5" }
         m.enter()
-        assertEquals("Added ₱45.50 · Food", withTimeout(15_000) { m.toasts.first() })
+        assertEquals("Added ₱45.50 · Food · Cash", withTimeout(15_000) { m.toasts.first() })
         val rows = expenses.rowsForDay(expenses.today())
         assertEquals(4550L, rows.single().amountCentavos)
         assertEquals(food.id, rows.single().labelId)
@@ -155,6 +155,131 @@ class HomeViewModelTest {
         prefs.setLastLabelId(bills.id)
         val m = vm()
         assertEquals(bills.id, m.await { it.label != null }.label?.id)
+    }
+
+    private fun typeAmount(m: HomeViewModel, text: String) {
+        text.forEach { c -> m.onKey(if (c == '.') Key.Dot else Key.Digit(c - '0')) }
+    }
+
+    @Test fun enterSavesMethodAndDescription() = runBlocking {
+        val m = vm()
+        m.await { it.method?.name == "Cash" && it.label != null }
+        m.swipeMethod(+1)
+        m.await { it.method?.name == "GCash" }
+        m.onDescriptionChange(" Jollibee ")
+        typeAmount(m, "185")
+        m.await { it.input == "185" && it.description == " Jollibee " }
+        m.enter()
+        assertEquals("Added ₱185.00 · Jollibee · GCash", withTimeout(15_000) { m.toasts.first() })
+        val row = expenses.rowsForDay(expenses.today()).single()
+        assertEquals("GCash", row.paymentMethodName)
+        assertEquals("Jollibee", row.description)
+        val after = m.await { it.input == "" && it.description == "" }
+        assertEquals("GCash", after.method?.name) // method and label are kept
+    }
+
+    @Test fun enterWithoutDescriptionToastsLabelAndMethod() = runBlocking {
+        val m = vm()
+        m.await { it.label?.name == "Food" && it.method != null }
+        typeAmount(m, "185")
+        m.await { it.input == "185" }
+        m.enter()
+        assertEquals("Added ₱185.00 · Food · Cash", withTimeout(15_000) { m.toasts.first() })
+        assertNull(expenses.rowsForDay(expenses.today()).single().description)
+    }
+
+    @Test fun swipeLabelDoesNotChangeMethod() = runBlocking {
+        val m = vm()
+        val start = m.await { it.label != null && it.method != null }
+        m.swipeLabel(+1)
+        val s = m.await { it.label?.id != start.label?.id }
+        assertEquals(start.labels[1].id, s.label?.id)
+        assertEquals(start.method?.id, s.method?.id)
+    }
+
+    @Test fun swipesWrapBothWays() = runBlocking {
+        val m = vm()
+        val start = m.await { it.label != null && it.methods.isNotEmpty() }
+        m.swipeMethod(-1)
+        assertEquals(start.methods.last().id, m.await { it.method?.id == start.methods.last().id }.method?.id)
+        m.swipeLabel(-1)
+        assertEquals(start.labels.last().id, m.await { it.label?.id == start.labels.last().id }.label?.id)
+    }
+
+    @Test fun rapidSwipesAllApply() = runBlocking {
+        val m = vm()
+        val start = m.await { it.methods.size >= 3 && it.method != null }
+        m.swipeMethod(+1)
+        m.swipeMethod(+1)
+        assertEquals(start.methods[2].id, m.await { it.method?.id == start.methods[2].id }.method?.id)
+    }
+
+    @Test fun swipesUpdateLastUsed() = runBlocking {
+        val methodCalls = mutableListOf<Long>()
+        val labelCalls = mutableListOf<Long>()
+        val m = vms.track {
+            HomeViewModel(
+                expenses, labels, methods, prefs, MutableStateFlow(expenses.today()),
+                setLastMethod = { id -> methodCalls += id; prefs.setLastPaymentMethodId(id) },
+                setLastLabel = { id -> labelCalls += id; prefs.setLastLabelId(id) },
+            )
+        }
+        val start = m.await { it.label != null && it.method != null }
+        m.swipeMethod(+1)
+        m.swipeLabel(+1)
+        m.await { it.method?.id == start.methods[1].id && it.label?.id == start.labels[1].id }
+        assertEquals(listOf(start.methods[1].id), methodCalls)
+        assertEquals(listOf(start.labels[1].id), labelCalls)
+        assertEquals(start.methods[1].id, prefs.lastPaymentMethodId.first())
+        assertEquals(start.labels[1].id, prefs.lastLabelId.first())
+    }
+
+    @Test fun descriptionIsCutTo60() = runBlocking {
+        val m = vm()
+        m.onDescriptionChange("x".repeat(80))
+        assertEquals(60, m.await { it.description.isNotEmpty() }.description.length)
+    }
+
+    @Test fun voiceReplacesDescription() = runBlocking {
+        val m = vm()
+        m.onDescriptionChange("coffee")
+        m.await { it.description == "coffee" }
+        val before = m.descriptionResets.value
+        m.setDescriptionFromVoice("  jollibee chickenjoy  ")
+        assertEquals("jollibee chickenjoy", m.await { it.description != "coffee" }.description)
+        assertEquals("jollibee chickenjoy", m.descriptionText.value)
+        assertEquals(before + 1, m.descriptionResets.value) // the screen re-reads the box only on VM rewrites
+    }
+
+    @Test fun typingDoesNotBumpDescriptionResets() = runBlocking {
+        val m = vm()
+        val before = m.descriptionResets.value
+        m.onDescriptionChange("cof")
+        m.onDescriptionChange("coffee")
+        assertEquals("coffee", m.descriptionText.value)
+        assertEquals(before, m.descriptionResets.value)
+    }
+
+    @Test fun failedSaveRestoresDescriptionToo() = runBlocking {
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER fail_insert BEFORE INSERT ON expenses BEGIN SELECT RAISE(ABORT, 'boom'); END",
+        )
+        val m = vm()
+        m.await { it.label != null && it.method != null }
+        typeAmount(m, "185")
+        m.onDescriptionChange("Jollibee")
+        m.await { it.input == "185" && it.description == "Jollibee" }
+        m.enter()
+        assertEquals("Couldn't save. Try again.", withTimeout(15_000) { m.toasts.first() })
+        val s = m.await { it.input == "185" && it.description == "Jollibee" }
+        assertEquals("Jollibee", s.description)
+    }
+
+    @Test fun startsOnLastUsedPaymentMethod() = runBlocking {
+        val bpi = methods.active().first { it.name == "BPI" }
+        prefs.setLastPaymentMethodId(bpi.id)
+        val m = vm()
+        assertEquals(bpi.id, m.await { it.method != null }.method?.id)
     }
 
     @Test fun rollsOverAtMidnight() = runBlocking {

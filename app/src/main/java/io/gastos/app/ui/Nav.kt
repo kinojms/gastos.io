@@ -43,6 +43,7 @@ fun GastosNavHost(container: AppContainer) {
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
                 HomeViewModel(
                     container.expenses, container.labels, container.paymentMethods, container.prefs,
+                    setLastMethod = container::setLastPaymentMethod,
                     setLastLabel = container::setLastLabel,
                 ) as T
         }
