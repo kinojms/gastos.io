@@ -45,6 +45,8 @@ class SettingsViewModelTest {
     private lateinit var scope: CoroutineScope
     private lateinit var prefsFile: File
     private var downloadError: Exception? = null
+    private var downloadGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+    private var downloads = 0
 
     private object PlainCipher : TokenCipher {
         override fun encrypt(plain: ByteArray) = plain
@@ -56,6 +58,8 @@ class SettingsViewModelTest {
         override suspend fun getSha(repo: String, path: String, token: String): String? = null
 
         override suspend fun download(repo: String, path: String, token: String): String? {
+            downloads++
+            downloadGate?.await()
             downloadError?.let { throw it }
             return null
         }
@@ -175,6 +179,47 @@ class SettingsViewModelTest {
         vm.startFresh().join()
         assertTrue(prefs.backupEnabled.first())
         assertEquals(ActionResult("Backed up", false), vm.result.value)
+        assertFalse(vm.busy.value)
+    }
+
+    @Test fun saveSuccessShowsSaved() = runBlocking {
+        val vm = vm()
+        vm.repoInput.value = "o/r"
+        vm.save()!!.join()
+        assertEquals(ActionResult("Saved", false), vm.result.value)
+    }
+
+    @Test fun tokenWriteFailureDoesNotSaveRepo() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val failing = object : TokenCipher {
+            override fun encrypt(plain: ByteArray): ByteArray = throw java.security.GeneralSecurityException("boom")
+            override fun decrypt(blob: ByteArray) = blob
+        }
+        val badTokens = TokenStore(context.getSharedPreferences("settings_test_bad", Context.MODE_PRIVATE), failing)
+        val manager = BackupManager(db, prefs, badTokens, FakeGitHub(), Clock.systemUTC()) { }
+        val vm = SettingsViewModel(prefs, badTokens, manager, io = Dispatchers.Unconfined)
+        vm.repoInput.value = "o/r"
+        vm.tokenInput.value = "secret"
+        vm.save()!!.join()
+        assertNull(prefs.backupRepo.first())
+        assertFalse(vm.hasToken.value)
+        assertEquals(ActionResult("Couldn't save settings.", true), vm.result.value)
+    }
+
+    @Test fun secondActionIgnoredWhileBusy() = runBlocking {
+        tokens.save("t")
+        prefs.setBackupRepo("o/r")
+        val vm = vm()
+        downloadGate = kotlinx.coroutines.CompletableDeferred()
+        val first = vm.restore()
+        assertTrue(vm.busy.value)
+        withTimeout(5_000) { while (downloads == 0) kotlinx.coroutines.delay(10) }
+        vm.restore().join()
+        vm.repoInput.value = "o/r"
+        assertNull(vm.save())
+        assertEquals(1, downloads)
+        downloadGate!!.complete(Unit)
+        first.join()
         assertFalse(vm.busy.value)
     }
 }

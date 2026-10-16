@@ -6,6 +6,7 @@ import io.gastos.app.backup.BackupManager
 import io.gastos.app.backup.GitHubException
 import io.gastos.app.backup.TokenStore
 import io.gastos.app.data.AppPrefs
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -80,17 +81,24 @@ class SettingsViewModel(
 
     /** Saves repo and, if one was typed, the token. An empty token field keeps the existing token. */
     fun save(): Job? {
-        if (!validate()) return null
+        if (busy.value || !validate()) return null
         val repo = repoInput.value.trim()
         val token = tokenInput.value.trim()
         return viewModelScope.launch {
-            prefs.setBackupRepo(repo)
-            if (token.isNotEmpty()) {
-                withContext(io) { tokens.save(token) }
-                tokenSaved.value = true
-                tokenInput.value = ""
+            try {
+                // Token first, so a failed token write never leaves a repo saved without its token.
+                if (token.isNotEmpty()) withContext(io) { tokens.save(token) }
+                prefs.setBackupRepo(repo)
+                if (token.isNotEmpty()) {
+                    tokenSaved.value = true
+                    tokenInput.value = ""
+                }
+                result.value = ActionResult("Saved", false)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                result.value = ActionResult("Couldn't save settings.", true)
             }
-            result.value = null
         }
     }
 
