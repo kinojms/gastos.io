@@ -3,8 +3,10 @@ package io.gastos.app.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -21,6 +23,34 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         store.edit { it[LAST_LABEL_ID] = id }
     }
 
+    /** Backup repo as `"owner/name"`, or null when not set. */
+    val backupRepo: Flow<String?> = store.data.map { it[BACKUP_REPO] }
+
+    /** Off on a fresh install until the owner restores or chooses "Start fresh". */
+    val backupEnabled: Flow<Boolean> = store.data.map { it[BACKUP_ENABLED] ?: false }
+
+    /** Epoch millis of the last successful backup. */
+    val lastBackupAt: Flow<Long?> = store.data.map { it[LAST_BACKUP_AT] }
+
+    /** User-facing message of the last failed backup; null after a success. */
+    val lastBackupError: Flow<String?> = store.data.map { it[LAST_BACKUP_ERROR] }
+
+    suspend fun setBackupRepo(repo: String?) {
+        store.edit { if (repo == null) it.remove(BACKUP_REPO) else it[BACKUP_REPO] = repo }
+    }
+
+    suspend fun setBackupEnabled(enabled: Boolean) {
+        store.edit { it[BACKUP_ENABLED] = enabled }
+    }
+
+    suspend fun setLastBackupAt(millis: Long) {
+        store.edit { it[LAST_BACKUP_AT] = millis }
+    }
+
+    suspend fun setLastBackupError(message: String?) {
+        store.edit { if (message == null) it.remove(LAST_BACKUP_ERROR) else it[LAST_BACKUP_ERROR] = message }
+    }
+
     /** Last-used label if it still exists, else the first by position. */
     suspend fun resolveLabel(labels: List<LabelEntity>): LabelEntity {
         val last = lastLabelId.first()
@@ -29,5 +59,9 @@ class AppPrefs(private val store: DataStore<Preferences>) {
 
     private companion object {
         val LAST_LABEL_ID = longPreferencesKey("last_label_id")
+        val BACKUP_REPO = stringPreferencesKey("backup_repo")
+        val BACKUP_ENABLED = booleanPreferencesKey("backup_enabled")
+        val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
+        val LAST_BACKUP_ERROR = stringPreferencesKey("last_backup_error")
     }
 }

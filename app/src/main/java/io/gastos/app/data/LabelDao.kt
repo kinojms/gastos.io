@@ -36,4 +36,10 @@ interface LabelDao {
 
     @Query("DELETE FROM labels WHERE id = :id")
     suspend fun delete(id: Long)
+
+    @Insert
+    suspend fun insertAll(labels: List<LabelEntity>)
+
+    @Query("DELETE FROM labels")
+    suspend fun deleteAll()
 }

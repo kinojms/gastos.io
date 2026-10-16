@@ -16,6 +16,15 @@ interface ExpenseDao {
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun delete(id: Long)
 
+    @Query("SELECT * FROM expenses ORDER BY id ASC")
+    suspend fun all(): List<ExpenseEntity>
+
+    @Insert
+    suspend fun insertAll(expenses: List<ExpenseEntity>)
+
+    @Query("DELETE FROM expenses")
+    suspend fun deleteAll()
+
     @Query("UPDATE expenses SET labelId = :toId WHERE labelId = :fromId")
     suspend fun moveLabel(fromId: Long, toId: Long)
 

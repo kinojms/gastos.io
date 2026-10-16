@@ -4,12 +4,23 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(entities = [LabelEntity::class, ExpenseEntity::class], version = 1, exportSchema = true)
 abstract class GastosDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun labelDao(): LabelDao
+
+    /** Replaces every label and expense in one transaction, keeping the given ids. */
+    suspend fun replaceAll(labels: List<LabelEntity>, expenses: List<ExpenseEntity>) {
+        withTransaction {
+            expenseDao().deleteAll()
+            labelDao().deleteAll()
+            labelDao().insertAll(labels)
+            expenseDao().insertAll(expenses)
+        }
+    }
 
     /** Seeds the default labels synchronously when the database is first created. */
     object SeedCallback : Callback() {

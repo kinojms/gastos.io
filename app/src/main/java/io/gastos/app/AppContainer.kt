@@ -3,6 +3,10 @@ package io.gastos.app
 import android.content.Context
 import android.util.Log
 import androidx.glance.appwidget.updateAll
+import io.gastos.app.backup.BackupManager
+import io.gastos.app.backup.BackupScheduler
+import io.gastos.app.backup.GitHubClient
+import io.gastos.app.backup.TokenStore
 import io.gastos.app.data.AppPrefs
 import io.gastos.app.data.ExpenseRepository
 import io.gastos.app.data.GastosDatabase
@@ -14,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 import java.time.Clock
 import java.time.ZoneId
 
@@ -30,8 +35,19 @@ class AppContainer(context: Context) {
     val labels: LabelRepository = LabelRepository(db, ::onDataChanged)
     val exportService: ExportService = ExportService(context.applicationContext, expenses)
 
-    /** Called after every write. Refreshes the widget; backup scheduling (Task 9) hooks in here too. */
+    /** GitHub token, encrypted with the Android Keystore (touched lazily, on save/load only). */
+    val tokens: TokenStore = TokenStore(context)
+    val backupManager: BackupManager =
+        BackupManager(db, prefs, tokens, GitHubClient(OkHttpClient()), Clock.systemUTC()) { onDataChanged() }
+
+    /** Called after every write. Refreshes the widget and schedules a debounced backup. */
     fun onDataChanged() {
+        try {
+            // backupNow() is a no-op while backup is disabled, so scheduling is always safe.
+            BackupScheduler.schedule(appContext)
+        } catch (e: IllegalStateException) {
+            Log.w("Gastos", "Backup scheduling unavailable", e) // WorkManager not initialised (tests)
+        }
         appScope.launch {
             try {
                 GastosWidget().updateAll(appContext)
