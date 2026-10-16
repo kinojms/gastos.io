@@ -4,7 +4,7 @@ Date: 2026-10-16
 
 ## Name
 
-**Gastos.io** ("gastos" is Tagalog for expenses). App label on the phone: "Gastos.io". Android package `io.gastos.app`. *(package is Claude's call)*
+**Gastos.io** ("gastos" is Tagalog for expenses). App label on the phone: "Gastos.io". Android package `io.gastos.app`. *(package is default)*
 
 ## Intent
 
@@ -37,14 +37,14 @@ Mockups (approved): https://claude.ai/artifact/A32jzAPiiHAf8xuofVGEAZ
 ## Platform (decided)
 
 - **Native Android app** (owner chose native specifically to get a real home-screen widget).
-- Kotlin, Jetpack Compose for UI, Jetpack Glance for the widget. *(Claude's call, owner agreed by going native.)*
+- Kotlin, Jetpack Compose for UI, Jetpack Glance for the widget. *(default, owner agreed by going native.)*
 - Installed by APK (sideloaded). Target the S25 (Android 15+); min SDK is the builder's call (26+ is fine).
 
 ## Currency and amounts (decided)
 
 - Philippine Peso, displayed as `₱1,234.50`.
 - Decimals allowed, max 2 decimal places.
-- Store amounts as integer centavos to avoid float errors. *(Claude's call)*
+- Store amounts as integer centavos to avoid float errors. *(default)*
 - Zero / empty amounts are ignored on Enter.
 
 ## Screens
@@ -52,7 +52,7 @@ Mockups (approved): https://claude.ai/artifact/A32jzAPiiHAf8xuofVGEAZ
 ### 1. Home (opens on launch)
 - Focus: big amount display, numpad (1–9, `.`, 0, backspace), large Enter button.
 - Header: current date (e.g. "Fri, Oct 16") with today's total under it; button to open the expenses list.
-- Label picker under the amount (tap to choose label). Defaults to the last-used label. *(Claude's call)*
+- Label picker under the amount (tap to choose label). Defaults to the last-used label. *(default)*
 - Enter saves the expense with the current date/time and label, clears the amount, shows a brief "Added ₱X · Label" toast/snackbar.
 - Access to the Labels screen from Home or the list (builder's call where; e.g. overflow menu).
 
@@ -67,8 +67,8 @@ Mockups (approved): https://claude.ai/artifact/A32jzAPiiHAf8xuofVGEAZ
 
 ### 4. Labels
 - Add, rename, recolor, reorder (drag), delete.
-- Default set: Food, Transpo, Hobbies, Bills, Other. *(Claude's call; owner named the first three as examples)*
-- Deleting a label that has expenses: those expenses move to "Other". "Other" itself cannot be deleted. *(Claude's call)*
+- Default set: Food, Transpo, Hobbies, Bills, Other. *(default; owner named the first three as examples)*
+- Deleting a label that has expenses: those expenses move to "Other". "Other" itself cannot be deleted. *(default)*
 - Label order is the order used by the widget ticker and the picker.
 
 ### 5. Home-screen widget (decided by owner)
@@ -76,12 +76,12 @@ Mockups (approved): https://claude.ai/artifact/A32jzAPiiHAf8xuofVGEAZ
 - Enter saves the expense exactly as the app does, clears the amount, and updates today's total shown on the widget.
 - Glance widgets update with slight lag per tap; owner accepted this.
 - Suggested size 4×3, resizable is a nice-to-have. In-progress amount is held in widget state.
-- The widget and app share one "last-used label". *(Claude's call)*
+- The widget and app share one "last-used label". *(default)*
 
 ## Export (decided by owner: CSV and XLSX, daily and monthly)
 
 - Available from any day's list (daily) and the Month tab (monthly).
-- Output saved via Android's share sheet / "Save to" picker so the owner can send it anywhere. *(Claude's call)*
+- Output saved via Android's share sheet / "Save to" picker so the owner can send it anywhere. *(default)*
 - File names: `expenses-2026-10-16.csv`, `expenses-2026-10.xlsx`.
 - Columns: Date, Time, Label, Amount.
 - **CSV**: UTF-8 with BOM (so Excel shows `₱` correctly), ISO-ish date `2026-10-16`, amount as plain number `45.50`.
@@ -102,15 +102,15 @@ Mockups (approved): https://claude.ai/artifact/A32jzAPiiHAf8xuofVGEAZ
 - **Restore**: Settings → "Restore from GitHub" replaces local data with the repo's backup, after an in-app confirm step.
 - Single device; no merge or conflict handling needed beyond last-write-wins.
 - Commits to the data repo are made under the owner's token, so they show only the owner's name.
-- **New-install safety**: on a fresh install, auto-backup stays off until the owner either restores or confirms "start fresh", so an empty database never overwrites an existing backup. *(Claude's call)*
-- Handle backup files over 1 MB from the start (Contents API raw media type, or Git Data API). *(Claude's call)*
-- Backup includes a schema version; restore migrates older versions and refuses newer ones with a clear message. *(Claude's call)*
-- Sign all APKs with one release key so updates install over the existing app. *(Claude's call)*
+- **New-install safety**: on a fresh install, auto-backup stays off until the owner either restores or confirms "start fresh", so an empty database never overwrites an existing backup. *(default)*
+- Handle backup files over 1 MB from the start (Contents API raw media type, or Git Data API). *(default)*
+- Backup includes a schema version; restore migrates older versions and refuses newer ones with a clear message. *(default)*
+- Sign all APKs with one release key so updates install over the existing app. *(default)*
 
 ## Settings screen (minimal)
 - GitHub repo (owner/name) and token, backup status, Back up now, Restore.
 - Manage labels link.
-- Theme follows system light/dark. *(Claude's call)*
+- Theme follows system light/dark. *(default)*
 
 ## Confirm popups (decided by owner)
 - Every create/update/delete shows an in-app confirm popup **except** adding an expense from the Home numpad or widget (that stays one tap, followed by the "Added" toast).
