@@ -36,20 +36,23 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.width
 import androidx.glance.semantics.contentDescription
 import androidx.glance.semantics.semantics
 import androidx.glance.state.GlanceStateDefinition
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import io.gastos.app.GastosApp
 import io.gastos.app.data.LabelEntity
+import io.gastos.app.data.PaymentMethodEntity
 import io.gastos.app.domain.AmountInput
 import io.gastos.app.domain.Money
 
-/** Home-screen numpad: label ticker, amount, 4-column pad with Enter and today's total (mockup screen 7). */
+/** Home-screen numpad: label and payment-method tickers, amount, 4-column pad with Enter and today's total (mockup screen 7). */
 class GastosWidget : GlanceAppWidget() {
     override val stateDefinition: GlanceStateDefinition<*> = PreferencesGlanceStateDefinition
 
@@ -63,11 +66,15 @@ class GastosWidget : GlanceAppWidget() {
             // re-running provideGlance, and keypad taps never touch the database.
             val labels by remember { container.labels.observeAll() }.collectAsState(emptyList())
             val lastLabelId by remember { container.prefs.lastLabelId }.collectAsState(null)
+            val methods by remember { container.paymentMethods.observeActive() }.collectAsState(emptyList())
+            val lastMethodId by remember { container.prefs.lastPaymentMethodId }.collectAsState(null)
             val today = container.expenses.today() // device zone, at render time
             val total by remember(today) { container.expenses.observeDayTotal(today) }.collectAsState(0L)
             val input = currentState<Preferences>()[INPUT] ?: ""
             val label = labels.firstOrNull { it.id == lastLabelId } ?: labels.firstOrNull()
-            WidgetContent(input, label, total)
+            // Same rule as AppPrefs.resolvePaymentMethod, which Enter uses: last-used if active, else first.
+            val method = methods.firstOrNull { it.id == lastMethodId } ?: methods.firstOrNull()
+            WidgetContent(input, label, method, total)
         }
     }
 
@@ -82,19 +89,26 @@ private val Ink = ColorProvider(Color(0xFFE8EDF2))
 private val Muted = ColorProvider(Color(0x99E8EDF2))
 private val Amber = ColorProvider(Color(0xFFF2B33A))
 private val AmberInk = ColorProvider(Color(0xFF1C1300))
+private val White = ColorProvider(Color.White)
+private val WhiteMuted = ColorProvider(Color(0xB3FFFFFF))
 
 private val OuterPadding = 12.dp
 private val TopRowHeight = 40.dp
 private val Gap = 3.dp // half the spacing between keys
+private val WideWidget = 300.dp // at or above this width the ticker names get more room
+
+/** Most characters a ticker name shows before "…", so both pills and the amount fit the top row. */
+@Composable
+private fun tickerNameMax(): Int = if (LocalSize.current.width >= WideWidget) 12 else 8
 
 @Composable
-private fun WidgetContent(input: String, label: LabelEntity?, total: Long) {
+private fun WidgetContent(input: String, label: LabelEntity?, method: PaymentMethodEntity?, total: Long) {
     val padHeight = (LocalSize.current.height - OuterPadding * 2 - TopRowHeight).coerceAtLeast(0.dp)
     Column(
         modifier = GlanceModifier.fillMaxSize().background(Background).cornerRadius(24.dp)
             .padding(OuterPadding - Gap),
     ) {
-        TopRow(input, label)
+        TopRow(input, label, method)
         // Row 1
         Row(GlanceModifier.fillMaxWidth().defaultWeight()) {
             DigitKey(1)
@@ -126,33 +140,64 @@ private fun WidgetContent(input: String, label: LabelEntity?, total: Long) {
 }
 
 @Composable
-private fun TopRow(input: String, label: LabelEntity?) {
+private fun TopRow(input: String, label: LabelEntity?, method: PaymentMethodEntity?) {
+    val nameMax = tickerNameMax()
+    val amount = "₱" + AmountInput.display(input)
     Row(
         modifier = GlanceModifier.fillMaxWidth().height(TopRowHeight).padding(horizontal = Gap),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = GlanceModifier
-                .background(KeyBg).cornerRadius(999.dp)
-                .padding(horizontal = 10.dp, vertical = 5.dp)
-                .clickable(actionRunCallback<NextLabelAction>())
-                .semantics { contentDescription = "Label ${label?.name ?: "none"}, tap for next" },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("‹ ", style = TextStyle(color = Muted, fontSize = 11.sp))
-            Text(
-                label?.name ?: "—",
-                style = TextStyle(color = Ink, fontSize = 13.sp, fontWeight = FontWeight.Medium),
-                maxLines = 1,
-            )
-            Text(" ›", style = TextStyle(color = Muted, fontSize = 11.sp))
-        }
-        Spacer(GlanceModifier.defaultWeight())
+        TickerPill(
+            name = label?.name?.let { WidgetLogic.shortName(it, nameMax) } ?: "—",
+            background = KeyBg,
+            ink = Ink,
+            chevron = Muted,
+            action = actionRunCallback<NextLabelAction>(),
+            description = "Label ${label?.name ?: "none"}, tap for next",
+        )
+        Spacer(GlanceModifier.width(4.dp))
+        TickerPill(
+            name = method?.name?.let { WidgetLogic.shortName(it, nameMax) } ?: "—",
+            background = method?.let { ColorProvider(Color(it.colorArgb)) } ?: KeyBg,
+            ink = White,
+            chevron = WhiteMuted,
+            action = actionRunCallback<NextMethodAction>(),
+            description = "Payment ${method?.name ?: "none"}, tap for next",
+        )
         Text(
-            "₱" + AmountInput.display(input),
-            style = TextStyle(color = Ink, fontSize = 24.sp, fontWeight = FontWeight.Bold),
+            amount,
+            modifier = GlanceModifier.defaultWeight().padding(start = 4.dp),
+            style = TextStyle(
+                color = Ink,
+                fontSize = WidgetLogic.amountFontSp(amount).sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.End,
+            ),
             maxLines = 1,
         )
+    }
+}
+
+/** A tappable rounded ticker showing [name] with a trailing chevron. */
+@Composable
+private fun TickerPill(
+    name: String,
+    background: ColorProvider,
+    ink: ColorProvider,
+    chevron: ColorProvider,
+    action: Action,
+    description: String,
+) {
+    Row(
+        modifier = GlanceModifier
+            .background(background).cornerRadius(999.dp)
+            .padding(horizontal = 8.dp, vertical = 5.dp)
+            .clickable(action)
+            .semantics { contentDescription = description },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(name, style = TextStyle(color = ink, fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1)
+        Text(" ›", style = TextStyle(color = chevron, fontSize = 11.sp))
     }
 }
 

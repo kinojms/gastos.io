@@ -1,6 +1,7 @@
 package io.gastos.app.widget
 
 import io.gastos.app.data.LabelEntity
+import io.gastos.app.data.PaymentMethodEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -8,6 +9,53 @@ import org.junit.Test
 class WidgetLogicTest {
     private val labels = listOf("Food", "Transpo", "Hobbies", "Bills", "Other").mapIndexed { i, name ->
         LabelEntity(id = (i + 1).toLong(), name = name, colorArgb = 0, position = i, isOther = name == "Other")
+    }
+
+    private val methods = listOf("Cash", "GCash", "Maribank", "BPI", "Maya", "BDO").mapIndexed { i, name ->
+        PaymentMethodEntity(id = (i + 1).toLong(), name = name, colorArgb = 0, position = i)
+    }
+
+    @Test fun methodsCycleInOrderAndWrap() {
+        val seen = mutableListOf<String>()
+        var current: Long? = methods.first().id
+        repeat(6) {
+            val next = WidgetLogic.nextMethod(methods, current)
+            seen += next.name
+            current = next.id
+        }
+        assertEquals(listOf("GCash", "Maribank", "BPI", "Maya", "BDO", "Cash"), seen)
+    }
+
+    @Test fun methodsFollowPositionNotListOrder() =
+        assertEquals("Maribank", WidgetLogic.nextMethod(methods.reversed(), methods[1].id).name)
+
+    @Test fun archivedCurrentMethodFallsBackToFirst() {
+        // An archived method is not in the active list the widget passes in.
+        val active = methods.filterNot { it.name == "BPI" }
+        assertEquals("Cash", WidgetLogic.nextMethod(active, methods[3].id).name)
+    }
+
+    @Test fun unknownOrNullCurrentMethodFallsBackToFirst() {
+        assertEquals("Cash", WidgetLogic.nextMethod(methods, 999L).name)
+        assertEquals("Cash", WidgetLogic.nextMethod(methods, null).name)
+    }
+
+    @Test fun singleMethodWrapsToItself() =
+        assertEquals("Cash", WidgetLogic.nextMethod(listOf(methods.first()), methods.first().id).name)
+
+    @Test fun shortNameKeepsNamesThatFit() {
+        assertEquals("Maribank", WidgetLogic.shortName("Maribank", 8))
+        assertEquals("BDO", WidgetLogic.shortName("BDO", 8))
+    }
+
+    @Test fun shortNameEllipsizesLongNames() =
+        assertEquals("Security…", WidgetLogic.shortName("Security Bank", 9))
+
+    @Test fun amountFontShrinksAsTextGrows() {
+        assertEquals(22, WidgetLogic.amountFontSp("₱45.50"))
+        assertEquals(18, WidgetLogic.amountFontSp("₱1,234.56"))
+        assertEquals(15, WidgetLogic.amountFontSp("₱1,234,567.8"))
+        assertEquals(13, WidgetLogic.amountFontSp("₱9,999,999.99"))
     }
 
     @Test fun cyclesInOrderAndWraps() {

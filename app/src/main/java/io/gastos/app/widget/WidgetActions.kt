@@ -61,7 +61,21 @@ class NextLabelAction : ActionCallback {
     }
 }
 
-/** Saves the typed amount under the shown label. Empty/zero input or no labels: no-op. */
+/** Advances the shared last-used payment method (also read by Home), like [NextLabelAction]. */
+class NextMethodAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val container = context.container()
+        val methods = container.paymentMethods.active()
+        if (methods.isEmpty()) return
+        // Advance from the method actually shown, so a never-set or archived pref still moves off the first.
+        val shown = container.prefs.resolvePaymentMethod(methods)
+        // Also refreshes every widget instance, so all of them show the new method.
+        container.setLastPaymentMethod(WidgetLogic.nextMethod(methods, shown.id).id)
+        GastosWidget().update(context, glanceId)
+    }
+}
+
+/** Saves the typed amount under the shown label and payment method. Empty/zero input or no labels: no-op. */
 class EnterAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val container = context.container()
