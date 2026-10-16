@@ -50,10 +50,24 @@ open class GitHubClient(
         }
     }
 
-    /** Raw file contents of [path], or null if it does not exist. The raw media type works past 1 MB. */
+    /**
+     * Raw file contents of [path], or null if the repo is visible but has no such file.
+     * GitHub also answers 404 for a private repo the token can't see, so a missing file is
+     * double-checked against the repo itself; if that 404s too, this throws instead of returning null.
+     * The raw media type works past 1 MB.
+     */
     open suspend fun download(repo: String, path: String, token: String): String? {
         val request = request(repo, path, token).header("Accept", "application/vnd.github.raw+json").get().build()
-        return execute(request, nullOn404 = true) { it.body?.string().orEmpty() }
+        val content = execute(request, nullOn404 = true) { it.body?.string().orEmpty() }
+        if (content == null) ensureRepoVisible(repo, token)
+        return content
+    }
+
+    /** Throws [GitHubException] (404) when [repo] does not exist or is hidden from [token]. */
+    private suspend fun ensureRepoVisible(repo: String, token: String) {
+        val request = request(repo, path = null, token).header("Accept", "application/vnd.github+json").get().build()
+        execute(request, nullOn404 = true) { }
+            ?: throw GitHubException(404, "Repo not found, or this token can't access it.")
     }
 
     /** Creates or updates [path] with [content] as one commit. [sha] is required when the file exists. */
@@ -71,7 +85,8 @@ open class GitHubClient(
         execute(request, nullOn404 = false) { }
     }
 
-    private fun request(repo: String, path: String, token: String): Request.Builder {
+    /** Builds `repos/{owner}/{name}/contents/{path}`, or `repos/{owner}/{name}` when [path] is null. */
+    private fun request(repo: String, path: String?, token: String): Request.Builder {
         val parts = repo.trim().split('/')
         if (parts.size != 2 || parts.any { it.isBlank() }) {
             throw GitHubException(400, "Repo must look like owner/name.")
@@ -80,8 +95,7 @@ open class GitHubClient(
             .addPathSegment("repos")
             .addPathSegment(parts[0])
             .addPathSegment(parts[1])
-            .addPathSegment("contents")
-            .addPathSegments(path)
+            .apply { if (path != null) addPathSegment("contents").addPathSegments(path) }
             .build()
         return Request.Builder()
             .url(url)

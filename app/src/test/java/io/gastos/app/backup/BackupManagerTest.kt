@@ -179,6 +179,18 @@ class BackupManagerTest {
         assertEquals(0, dataChangedCalls)
     }
 
+    @Test fun hiddenRepoRestoreFailsWithoutEnablingBackup() = runBlocking {
+        val labelsBefore = localLabels()
+        github.downloadError = GitHubException(404, "Repo not found, or this token can't access it.")
+
+        val result = manager.restore()
+
+        assertEquals("Repo not found, or this token can't access it.", result.exceptionOrNull()?.message)
+        assertEquals(labelsBefore, localLabels())
+        assertFalse(prefs.backupEnabled.first())
+        assertEquals(0, dataChangedCalls)
+    }
+
     @Test fun newerSchemaRestoreKeepsLocal() = runBlocking {
         val labelsBefore = localLabels()
         github.remote = """{"schemaVersion":2,"exportedAt":"x","labels":[],"expenses":[]}"""

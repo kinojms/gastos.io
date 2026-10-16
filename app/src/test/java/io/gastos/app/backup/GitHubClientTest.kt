@@ -15,6 +15,7 @@ import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import java.util.Base64
+import java.util.concurrent.TimeUnit
 
 class GitHubClientTest {
     private lateinit var server: MockWebServer
@@ -70,6 +71,30 @@ class GitHubClientTest {
         val req = server.takeRequest()
         assertEquals("application/vnd.github.raw+json", req.getHeader("Accept"))
         assertEquals("Bearer t", req.getHeader("Authorization"))
+    }
+
+    @Test fun downloadReturnsNullWhenRepoVisibleButFileMissing() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(404)) // contents/backup.json
+        server.enqueue(MockResponse().setBody("""{"full_name":"o/r","private":true}""")) // repos/o/r
+        assertNull(client.download("o/r", "backup.json", "t"))
+        assertEquals("/repos/o/r/contents/backup.json", server.takeRequest().path)
+        val repoCheck = server.takeRequest(1, TimeUnit.SECONDS) ?: error("no repo check request")
+        assertEquals("/repos/o/r", repoCheck.path)
+        assertEquals("Bearer t", repoCheck.getHeader("Authorization"))
+    }
+
+    @Test fun downloadFailsWhenRepoHiddenFromToken() = runBlocking {
+        // GitHub answers 404 for both the file and the repo when the token can't see a private repo.
+        server.enqueue(MockResponse().setResponseCode(404))
+        server.enqueue(MockResponse().setResponseCode(404))
+        try {
+            client.download("o/r", "backup.json", "t")
+            fail("expected GitHubException")
+        } catch (e: GitHubException) {
+            assertEquals(404, e.code)
+            assertEquals("Repo not found, or this token can't access it.", e.userMessage)
+        }
+        assertEquals(2, server.requestCount)
     }
 
     @Test fun maps401ToFriendlyMessage() = runBlocking {
