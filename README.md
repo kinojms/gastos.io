@@ -2,6 +2,16 @@
 
 A fast, personal expense tracker for Android. Open the app, type an amount, hit enter.
 
+## Features
+
+- Payment methods: Cash, GCash, Maribank, BPI, Maya and BDO. You can customize the list. Swipe left or right to change the method. The screen tints to its color. Swipe up or down to change the label.
+- Optional "What did you buy?" description. Type it or say it by voice, in English or Tagalog.
+- Notes in Edit expense.
+- CSV and XLSX exports include Description, Payment and Notes. The XLSX also has a "By payment" monthly sheet.
+- Five themes: Classic, Sand, Nord, Mocha and Forest. Each has light and dark.
+- Widget payment ticker.
+- About the dev.
+
 ## Install
 
 1. On the phone, log into GitHub in the browser (the repo is private).
