@@ -39,6 +39,19 @@ class LabelsViewModelTest {
 
     private suspend fun LabelsViewModel.ready() = withTimeout(15_000) { labels.first { it.isNotEmpty() } }
 
+    @Test fun confirmedAddSurvivesLeavingScreen() = runBlocking {
+        val store = androidx.lifecycle.ViewModelStore()
+        val factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = LabelsViewModel(repo) as T
+        }
+        val vm = androidx.lifecycle.ViewModelProvider(store, factory)[LabelsViewModel::class.java]
+        vm.ready()
+        vm.addAsync("Gym", 0xFF112233.toInt())
+        store.clear() // back navigation clears the ViewModel and cancels viewModelScope
+        withTimeout(15_000) { while (repo.all().none { it.name == "Gym" }) kotlinx.coroutines.delay(20) }
+    }
+
     @Test fun addRejectsBlank() = runBlocking {
         val vm = LabelsViewModel(repo)
         vm.ready()

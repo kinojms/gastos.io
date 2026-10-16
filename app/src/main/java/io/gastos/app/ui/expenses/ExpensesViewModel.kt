@@ -13,6 +13,7 @@ import io.gastos.app.export.ExportService
 import io.gastos.app.export.Format
 import io.gastos.app.ui.home.HomeViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
@@ -64,7 +66,10 @@ class ExpensesViewModel(
         date.atTime(time).atZone(zone()).toInstant().toEpochMilli()
 
     fun saveEdit(id: Long, amountCentavos: Long, labelId: Long, date: LocalDate, time: LocalTime) {
-        viewModelScope.launch { expenses.update(id, amountCentavos, labelId, timestampOf(date, time)) }
+        // NonCancellable: leaving the screen right after confirming must not drop the write.
+        viewModelScope.launch {
+            withContext(NonCancellable) { expenses.update(id, amountCentavos, labelId, timestampOf(date, time)) }
+        }
     }
 
     suspend fun exportDay(date: LocalDate, format: Format): ExportResult =
@@ -74,6 +79,6 @@ class ExpensesViewModel(
         requireNotNull(exporter) { "Export unavailable" }.exportMonthFile(month, format)
 
     fun delete(id: Long) {
-        viewModelScope.launch { expenses.delete(id) }
+        viewModelScope.launch { withContext(NonCancellable) { expenses.delete(id) } }
     }
 }

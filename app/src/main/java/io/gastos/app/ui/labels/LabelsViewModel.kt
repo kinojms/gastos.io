@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.gastos.app.data.LabelEntity
 import io.gastos.app.data.LabelRepository
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.stateIn
 
 class LabelsViewModel(private val repo: LabelRepository) : ViewModel() {
@@ -54,10 +56,11 @@ class LabelsViewModel(private val repo: LabelRepository) : ViewModel() {
     fun clearError() { error.value = null }
 
     private fun launchWrite(block: suspend () -> String?) {
-        viewModelScope.launch { block()?.let { error.value = it } }
+        viewModelScope.launch { withContext(NonCancellable) { block() }?.let { error.value = it } }
     }
 
-    // Fire-and-forget variants run in viewModelScope so leaving the screen cannot cancel a confirmed write.
+    // Fire-and-forget variants: the write runs NonCancellable, so leaving the screen (which cancels
+    // viewModelScope) cannot drop a confirmed write.
     fun addAsync(name: String, colorArgb: Int) = launchWrite { add(name, colorArgb) }
     fun renameAsync(id: Long, name: String) = launchWrite { rename(id, name) }
     fun recolorAsync(id: Long, colorArgb: Int) = launchWrite { recolor(id, colorArgb); null }

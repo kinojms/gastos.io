@@ -47,6 +47,19 @@ class ExpensesViewModelTest {
     private fun vm(month: YearMonth = YearMonth.of(2026, 10)) =
         ExpensesViewModel(expenses, labels, MutableStateFlow(expenses.today()), { manila }, month)
 
+    @Test fun confirmedDeleteSurvivesLeavingScreen() = runBlocking {
+        val id = expenses.add(1_000, labels.all().first().id)
+        val store = androidx.lifecycle.ViewModelStore()
+        val factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = vm() as T
+        }
+        val m = androidx.lifecycle.ViewModelProvider(store, factory)[ExpensesViewModel::class.java]
+        m.delete(id)
+        store.clear() // back navigation clears the ViewModel and cancels viewModelScope
+        withTimeout(15_000) { while (expenses.rowsForDay(expenses.today()).isNotEmpty()) kotlinx.coroutines.delay(20) }
+    }
+
     @Test fun monthSwitcher() = runBlocking {
         val m = vm()
         assertEquals(YearMonth.of(2026, 10), m.month.value)
