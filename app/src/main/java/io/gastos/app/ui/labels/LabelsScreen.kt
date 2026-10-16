@@ -37,7 +37,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +50,6 @@ import io.gastos.app.data.LabelEntity
 import io.gastos.app.ui.ConfirmCopy
 import io.gastos.app.ui.components.ConfirmDialog
 import io.gastos.app.ui.theme.GastosTheme
-import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -60,14 +58,13 @@ private class Pending(
     val message: String,
     val confirmText: String,
     val destructive: Boolean = false,
-    val run: suspend () -> Unit,
+    val run: () -> Unit,
 )
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LabelsScreen(vm: LabelsViewModel, onBack: () -> Unit) {
     val colors = GastosTheme.colors
-    val scope = rememberCoroutineScope()
     val shown by vm.displayed.collectAsState()
     val changed = vm.orderChanged(shown)
     val listState = rememberLazyListState()
@@ -84,7 +81,7 @@ fun LabelsScreen(vm: LabelsViewModel, onBack: () -> Unit) {
             Text("Labels", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             if (changed) {
                 TextButton(onClick = {
-                    queue = listOf(Pending(ConfirmCopy.reorderLabels(), "Save") { vm.saveOrder() })
+                    queue = listOf(Pending(ConfirmCopy.reorderLabels(), "Save") { vm.saveOrderAsync() })
                 }) { Text("Save order", color = colors.accent, fontWeight = FontWeight.SemiBold) }
             }
         }
@@ -127,7 +124,7 @@ fun LabelsScreen(vm: LabelsViewModel, onBack: () -> Unit) {
             onDismiss = { adding = false },
             onSave = { name, color ->
                 adding = false
-                queue = listOf(Pending(ConfirmCopy.addLabel(name), "Add") { vm.add(name, color) })
+                queue = listOf(Pending(ConfirmCopy.addLabel(name), "Add") { vm.addAsync(name, color) })
             },
             onDelete = null,
         )
@@ -143,24 +140,31 @@ fun LabelsScreen(vm: LabelsViewModel, onBack: () -> Unit) {
                 editing = null
                 queue = buildList {
                     if (name != label.name) {
-                        add(Pending(ConfirmCopy.renameLabel(label.name, name), "Rename") { vm.rename(label.id, name) })
+                        add(Pending(ConfirmCopy.renameLabel(label.name, name), "Rename") { vm.renameAsync(label.id, name) })
                     }
                     if (color != label.colorArgb) {
-                        add(Pending(ConfirmCopy.recolorLabel(name), "Change") { vm.recolor(label.id, color) })
+                        add(Pending(ConfirmCopy.recolorLabel(name), "Change") { vm.recolorAsync(label.id, color) })
                     }
                 }
             },
             onDelete = if (vm.canDelete(label)) {
                 {
                     editing = null
-                    scope.launch {
-                        val count = vm.expenseCount(label.id)
+                    vm.loadExpenseCount(label.id) { count ->
                         queue = listOf(
-                            Pending(ConfirmCopy.deleteLabel(label.name, count), "Delete", destructive = true) { vm.delete(label) },
+                            Pending(ConfirmCopy.deleteLabel(label.name, count), "Delete", destructive = true) { vm.deleteAsync(label) },
                         )
                     }
                 }
             } else null,
+        )
+    }
+    val writeError by vm.error.collectAsState()
+    writeError?.let { msg ->
+        AlertDialog(
+            onDismissRequest = vm::clearError,
+            text = { Text(msg) },
+            confirmButton = { TextButton(onClick = vm::clearError) { Text("OK", color = colors.accent) } },
         )
     }
     queue.firstOrNull()?.let { p ->
@@ -170,7 +174,7 @@ fun LabelsScreen(vm: LabelsViewModel, onBack: () -> Unit) {
             destructive = p.destructive,
             onConfirm = {
                 queue = queue.drop(1)
-                scope.launch { p.run() }
+                p.run()
             },
             onDismiss = { queue = emptyList() },
         )

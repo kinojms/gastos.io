@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.stateIn
 
 class LabelsViewModel(private val repo: LabelRepository) : ViewModel() {
@@ -45,6 +46,25 @@ class LabelsViewModel(private val repo: LabelRepository) : ViewModel() {
         val order = currentOrder().map { it.id }
         repo.reorder(order)
         localOrder.value = null
+    }
+
+    /** Error from a confirmed write that failed validation; shown by the screen until [clearError]. */
+    val error = MutableStateFlow<String?>(null)
+
+    fun clearError() { error.value = null }
+
+    private fun launchWrite(block: suspend () -> String?) {
+        viewModelScope.launch { block()?.let { error.value = it } }
+    }
+
+    // Fire-and-forget variants run in viewModelScope so leaving the screen cannot cancel a confirmed write.
+    fun addAsync(name: String, colorArgb: Int) = launchWrite { add(name, colorArgb) }
+    fun renameAsync(id: Long, name: String) = launchWrite { rename(id, name) }
+    fun recolorAsync(id: Long, colorArgb: Int) = launchWrite { recolor(id, colorArgb); null }
+    fun saveOrderAsync() = launchWrite { saveOrder(); null }
+    fun deleteAsync(label: LabelEntity) = launchWrite { delete(label); null }
+    fun loadExpenseCount(id: Long, onResult: (Int) -> Unit) {
+        viewModelScope.launch { onResult(expenseCount(id)) }
     }
 
     fun discardOrder() { localOrder.value = null }

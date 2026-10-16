@@ -97,4 +97,35 @@ class LabelsViewModelTest {
         vm.delete(food)
         assertFalse(repo.all().any { it.id == food.id })
     }
+
+    @Test fun labelAddedDuringUnsavedReorderIsKept() = runBlocking {
+        val vm = LabelsViewModel(repo)
+        val before = vm.ready()
+        vm.move(0, 2)
+        assertNull(vm.add("Pets", 0xFF112233.toInt()))
+        val shown = withTimeout(15_000) { vm.displayed.first { it.size == 6 } }.map { it.id }
+        assertEquals(shown.size, shown.toSet().size)
+        assertTrue(shown.containsAll(before.map { it.id }))
+        vm.saveOrder()
+        assertEquals(shown, repo.all().map { it.id })
+    }
+
+    @Test fun labelDeletedDuringUnsavedReorderIsDropped() = runBlocking {
+        val vm = LabelsViewModel(repo)
+        val before = vm.ready()
+        vm.move(0, 2)
+        val food = before.first { it.name == "Food" }
+        vm.delete(food)
+        val shown = withTimeout(15_000) { vm.displayed.first { it.size == 4 } }.map { it.id }
+        assertTrue(food.id !in shown)
+        vm.saveOrder()
+        assertEquals(shown, repo.all().map { it.id })
+    }
+
+    @Test fun asyncWriteSurfacesValidationError() = runBlocking {
+        val vm = LabelsViewModel(repo)
+        vm.ready()
+        vm.addAsync("food", 1)
+        assertEquals("That label already exists", withTimeout(15_000) { vm.error.first { it != null } })
+    }
 }
