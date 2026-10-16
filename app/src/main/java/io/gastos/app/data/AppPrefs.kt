@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import io.gastos.app.ui.components.VoiceLanguage
 import io.gastos.app.ui.theme.ThemeId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -67,6 +68,15 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         store.edit { it[THEME_ID] = id.name }
     }
 
+    /** Speech-recognition language; missing or unknown values fall back to English. */
+    val voiceLanguage: Flow<VoiceLanguage> = store.data.map { prefs ->
+        VoiceLanguage.values().firstOrNull { it.name == prefs[VOICE_LANGUAGE] } ?: VoiceLanguage.ENGLISH
+    }
+
+    suspend fun setVoiceLanguage(v: VoiceLanguage) {
+        store.edit { it[VOICE_LANGUAGE] = v.name }
+    }
+
     /** Last-used label if it still exists, else the first by position. */
     suspend fun resolveLabel(labels: List<LabelEntity>): LabelEntity {
         val last = lastLabelId.first()
@@ -80,6 +90,7 @@ class AppPrefs(private val store: DataStore<Preferences>) {
     }
 
     private companion object {
+        val VOICE_LANGUAGE = stringPreferencesKey("voice_language")
         val THEME_ID = stringPreferencesKey("theme_id")
         val LAST_LABEL_ID = longPreferencesKey("last_label_id")
         val LAST_PAYMENT_METHOD_ID = longPreferencesKey("last_payment_method_id")
