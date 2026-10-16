@@ -6,10 +6,13 @@ import io.gastos.app.backup.BackupManager
 import io.gastos.app.backup.GitHubException
 import io.gastos.app.backup.TokenStore
 import io.gastos.app.data.AppPrefs
+import io.gastos.app.ui.components.VoiceLanguage
+import io.gastos.app.ui.theme.ThemeId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +25,14 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/** Developer details shown in Settings. */
+object AboutDev {
+    const val NAME = "Justin Sacdalan"
+    const val TAGLINE = "keep on keeping on"
+    const val GITHUB = "https://github.com/kinojms"
+    const val LINKEDIN = "https://www.linkedin.com/in/justin-sacdalan"
+}
 
 /** The status line under the backup fields. */
 data class BackupStatus(val text: String, val isError: Boolean)
@@ -51,6 +62,12 @@ class SettingsViewModel(
 
     val backupEnabled: StateFlow<Boolean> =
         prefs.backupEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val themeId: StateFlow<ThemeId> =
+        prefs.themeId.stateIn(viewModelScope, SharingStarted.Eagerly, ThemeId.CLASSIC)
+
+    val voiceLanguage: StateFlow<VoiceLanguage> =
+        prefs.voiceLanguage.stateIn(viewModelScope, SharingStarted.Eagerly, VoiceLanguage.ENGLISH)
 
     private val savedRepo: StateFlow<String?> =
         prefs.backupRepo.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -100,6 +117,20 @@ class SettingsViewModel(
             } catch (e: Exception) {
                 result.value = ActionResult("Couldn't save settings.", true)
             }
+        }
+    }
+
+    /** Call after the user confirmed. No-op when [id] is already the saved theme. */
+    fun setTheme(id: ThemeId): Job = viewModelScope.launch {
+        withContext(NonCancellable) {
+            if (prefs.themeId.first() != id) prefs.setThemeId(id)
+        }
+    }
+
+    /** Call after the user confirmed. No-op when [v] is already the saved language. */
+    fun setVoiceLanguage(v: VoiceLanguage): Job = viewModelScope.launch {
+        withContext(NonCancellable) {
+            if (prefs.voiceLanguage.first() != v) prefs.setVoiceLanguage(v)
         }
     }
 

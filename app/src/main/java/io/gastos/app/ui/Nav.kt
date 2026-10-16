@@ -115,6 +115,7 @@ fun GastosNavHost(container: AppContainer) {
                 vm = viewModel<SettingsViewModel>(factory = settingsFactory),
                 onBack = { nav.popBackStack() },
                 onOpenLabels = { nav.navigate(Routes.LABELS) },
+                onOpenMethods = { nav.navigate(Routes.METHODS) },
             )
         }
     }

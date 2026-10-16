@@ -35,4 +35,9 @@ class ConfirmCopyTest {
         assertEquals("Start fresh? Any existing backup in the repo will be replaced with this phone's data.", ConfirmCopy.startFresh())
         assertEquals("Save backup settings?", ConfirmCopy.saveBackupSettings())
     }
+
+    @Test fun themeAndVoiceCopy() {
+        assertEquals("Change theme to Nord?", ConfirmCopy.changeTheme("Nord"))
+        assertEquals("Change voice language to Tagalog?", ConfirmCopy.changeVoiceLanguage("Tagalog"))
+    }
 }

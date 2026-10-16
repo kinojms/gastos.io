@@ -249,4 +249,25 @@ class SettingsViewModelTest {
         first.join()
         assertFalse(vm.busy.value)
     }
+
+    @Test fun setThemePersists() = runBlocking {
+        val vm = vm()
+        vm.setTheme(io.gastos.app.ui.theme.ThemeId.NORD).join()
+        assertEquals(io.gastos.app.ui.theme.ThemeId.NORD, prefs.themeId.first())
+        vm.setTheme(io.gastos.app.ui.theme.ThemeId.NORD).join() // unchanged: no-op
+        assertEquals(io.gastos.app.ui.theme.ThemeId.NORD, prefs.themeId.first())
+    }
+
+    @Test fun setVoiceLanguagePersists() = runBlocking {
+        val vm = vm()
+        vm.setVoiceLanguage(io.gastos.app.ui.components.VoiceLanguage.TAGALOG).join()
+        assertEquals(io.gastos.app.ui.components.VoiceLanguage.TAGALOG, prefs.voiceLanguage.first())
+    }
+
+    @Test fun aboutLinksAreClean() {
+        assertEquals("https://github.com/kinojms", AboutDev.GITHUB)
+        assertEquals("https://www.linkedin.com/in/justin-sacdalan", AboutDev.LINKEDIN)
+        assertFalse(AboutDev.GITHUB.contains('?'))
+        assertFalse(AboutDev.LINKEDIN.contains('?'))
+    }
 }

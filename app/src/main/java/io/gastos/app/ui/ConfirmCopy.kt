@@ -23,4 +23,6 @@ object ConfirmCopy {
     fun restore() = "Restore from GitHub? This replaces all data on this phone."
     fun startFresh() = "Start fresh? Any existing backup in the repo will be replaced with this phone's data."
     fun saveBackupSettings() = "Save backup settings?"
+    fun changeTheme(name: String) = "Change theme to $name?"
+    fun changeVoiceLanguage(name: String) = "Change voice language to $name?"
 }
