@@ -2,6 +2,7 @@ package io.gastos.app.backup
 
 import androidx.room.withTransaction
 import io.gastos.app.data.AppPrefs
+import io.gastos.app.data.DEFAULT_PAYMENT_METHODS
 import io.gastos.app.data.ExpenseEntity
 import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelEntity
@@ -63,7 +64,11 @@ class BackupManager(
                 throw BackupException(DAMAGED)
             }
             val labels = file.labels.map { LabelEntity(it.id, it.name, it.colorArgb, it.position, it.isOther) }
-            val expenses = file.expenses.map { ExpenseEntity(it.id, it.amountCentavos, it.labelId, it.timestamp) }
+            // Backup schema 1 has no payment methods: every restored expense goes to Cash (first active as fallback).
+            val methodId = defaultPaymentMethodId()
+            val expenses = file.expenses.map {
+                ExpenseEntity(it.id, it.amountCentavos, it.labelId, it.timestamp, paymentMethodId = methodId)
+            }
             validate(labels, expenses)
             db.replaceAll(labels, expenses)
             prefs.setBackupEnabled(true)
@@ -83,6 +88,12 @@ class BackupManager(
             ?: throw BackupException("Set the GitHub repo first.")
         val token = tokens.load() ?: throw BackupException("Add your GitHub token first.")
         return repo to token
+    }
+
+    private suspend fun defaultPaymentMethodId(): Long {
+        val active = db.paymentMethodDao().active()
+        return (active.firstOrNull { it.name == DEFAULT_PAYMENT_METHODS.first().first } ?: active.firstOrNull())?.id
+            ?: throw BackupException("No payment method to restore into.")
     }
 
     private fun toBackup(labels: List<LabelEntity>, expenses: List<ExpenseEntity>) = BackupFile(

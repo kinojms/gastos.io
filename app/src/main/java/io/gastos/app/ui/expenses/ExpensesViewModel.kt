@@ -65,10 +65,21 @@ class ExpensesViewModel(
     fun timestampOf(date: LocalDate, time: LocalTime): Long =
         date.atTime(time).atZone(zone()).toInstant().toEpochMilli()
 
-    fun saveEdit(id: Long, amountCentavos: Long, labelId: Long, date: LocalDate, time: LocalTime) {
+    fun saveEdit(
+        id: Long,
+        amountCentavos: Long,
+        labelId: Long,
+        paymentMethodId: Long,
+        date: LocalDate,
+        time: LocalTime,
+        description: String?,
+        notes: String?,
+    ) {
         // NonCancellable: leaving the screen right after confirming must not drop the write.
         viewModelScope.launch {
-            withContext(NonCancellable) { expenses.update(id, amountCentavos, labelId, timestampOf(date, time)) }
+            withContext(NonCancellable) {
+                expenses.update(id, amountCentavos, labelId, paymentMethodId, timestampOf(date, time), description, notes)
+            }
         }
     }
 

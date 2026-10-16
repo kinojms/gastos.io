@@ -33,6 +33,8 @@ class ExpensesViewModelTest {
     private lateinit var labels: LabelRepository
     private lateinit var expenses: ExpenseRepository
 
+    private suspend fun cash() = db.paymentMethodDao().active().first().id
+
     @Before fun setUp() {
         Dispatchers.setMain(Dispatchers.Unconfined)
         db = GastosDatabase.createInMemory(ApplicationProvider.getApplicationContext())
@@ -55,7 +57,7 @@ class ExpensesViewModelTest {
         ExpensesViewModel(expenses, labels, MutableStateFlow(expenses.today()), { manila }, month)
 
     @Test fun confirmedDeleteSurvivesLeavingScreen() = runBlocking {
-        val id = expenses.add(1_000, labels.all().first().id)
+        val id = expenses.add(1_000, labels.all().first().id, cash())
         val store = androidx.lifecycle.ViewModelStore()
         val factory = object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
@@ -82,23 +84,27 @@ class ExpensesViewModelTest {
         val d1 = LocalDate.of(2026, 10, 5)
         val d2 = LocalDate.of(2026, 10, 9)
         val ts = d1.atTime(14, 30).atZone(manila).toInstant().toEpochMilli()
-        val id = expenses.add(1000, food.id)
-        expenses.update(id, 1000, food.id, ts)
+        val gcash = db.paymentMethodDao().active().first { it.name == "GCash" }.id
+        val id = expenses.add(1000, food.id, gcash, "Jollibee")
+        expenses.update(id, 1000, food.id, gcash, ts, "Jollibee", "with Ana")
         val m = vm()
         val before = withTimeout(15_000) { m.daySummaries.first { it.isNotEmpty() } }
         assertEquals(d1, before.single().date)
 
-        m.saveEdit(id, 4550, bills.id, d2, LocalTime.of(9, 5))
+        m.saveEdit(id, 4550, bills.id, gcash, d2, LocalTime.of(9, 5), "Jollibee", "with Ana")
         val after = withTimeout(15_000) { m.daySummaries.first { s -> s.singleOrNull()?.date == d2 } }
         assertEquals(4550L, after.single().totalCentavos)
         val row = expenses.rowsForDay(d2).single()
         assertEquals(bills.id, row.labelId)
+        assertEquals(gcash, row.paymentMethodId)
+        assertEquals("Jollibee", row.description)
+        assertEquals("with Ana", row.notes)
         assertEquals(d2.atTime(9, 5).atZone(manila).toInstant().toEpochMilli(), row.timestamp)
     }
 
     @Test fun deleteRemovesExpense() = runBlocking {
         val food = labels.all().first { it.name == "Food" }
-        val id = expenses.add(1000, food.id)
+        val id = expenses.add(1000, food.id, cash())
         vm().delete(id)
         assertEquals(0, expenses.rowsForDay(expenses.today()).size)
     }

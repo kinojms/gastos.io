@@ -23,6 +23,12 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         store.edit { it[LAST_LABEL_ID] = id }
     }
 
+    val lastPaymentMethodId: Flow<Long?> = store.data.map { it[LAST_PAYMENT_METHOD_ID] }
+
+    suspend fun setLastPaymentMethodId(id: Long) {
+        store.edit { it[LAST_PAYMENT_METHOD_ID] = id }
+    }
+
     /** Backup repo as `"owner/name"`, or null when not set. */
     val backupRepo: Flow<String?> = store.data.map { it[BACKUP_REPO] }
 
@@ -57,8 +63,15 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         return labels.firstOrNull { it.id == last } ?: labels.first()
     }
 
+    /** Last-used payment method if it is still active, else the first active one. [active] must not be empty. */
+    suspend fun resolvePaymentMethod(active: List<PaymentMethodEntity>): PaymentMethodEntity {
+        val last = lastPaymentMethodId.first()
+        return active.firstOrNull { it.id == last } ?: active.first()
+    }
+
     private companion object {
         val LAST_LABEL_ID = longPreferencesKey("last_label_id")
+        val LAST_PAYMENT_METHOD_ID = longPreferencesKey("last_payment_method_id")
         val BACKUP_REPO = stringPreferencesKey("backup_repo")
         val BACKUP_ENABLED = booleanPreferencesKey("backup_enabled")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")

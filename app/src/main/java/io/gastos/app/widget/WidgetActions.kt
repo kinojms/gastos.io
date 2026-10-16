@@ -82,7 +82,8 @@ class EnterAction : ActionCallback {
         withContext(NonCancellable) {
             try {
                 // add() calls onDataChanged(), which refreshes every widget instance with the cleared input.
-                container.expenses.add(amount, label.id)
+                val method = container.prefs.resolvePaymentMethod(container.paymentMethods.active())
+                container.expenses.add(amount, label.id, method.id)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

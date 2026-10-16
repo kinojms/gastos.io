@@ -15,6 +15,7 @@ class CsvExporterTest {
         1, centavos,
         LocalDate.of(2026, 10, 16).atTime(time).atZone(zone).toInstant().toEpochMilli(),
         1, label, 0,
+        1, "Cash", 0, null, null,
     )
 
     private fun text(bytes: ByteArray) = String(bytes, 3, bytes.size - 3, Charsets.UTF_8)

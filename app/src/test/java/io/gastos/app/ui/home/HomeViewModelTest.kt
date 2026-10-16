@@ -6,6 +6,7 @@ import io.gastos.app.data.AppPrefs
 import io.gastos.app.data.ExpenseRepository
 import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelRepository
+import io.gastos.app.data.PaymentMethodRepository
 import io.gastos.app.domain.Key
 import io.gastos.app.ui.ViewModelTracker
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +42,7 @@ class HomeViewModelTest {
     private lateinit var db: GastosDatabase
     private lateinit var labels: LabelRepository
     private lateinit var expenses: ExpenseRepository
+    private lateinit var methods: PaymentMethodRepository
     private lateinit var prefs: AppPrefs
     private lateinit var scope: CoroutineScope
     private lateinit var prefsFile: File
@@ -50,6 +52,7 @@ class HomeViewModelTest {
         db = GastosDatabase.createInMemory(ApplicationProvider.getApplicationContext())
         labels = LabelRepository(db) { }
         expenses = ExpenseRepository(db, clock, { manila }) { }
+        methods = PaymentMethodRepository(db) { }
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         prefsFile = File.createTempFile("prefs", ".preferences_pb").also { it.delete() }
         prefs = AppPrefs(PreferenceDataStoreFactory.create(scope = scope) { prefsFile })
@@ -66,7 +69,7 @@ class HomeViewModelTest {
     }
 
     private fun vm(dates: kotlinx.coroutines.flow.Flow<LocalDate> = MutableStateFlow(expenses.today())) =
-        vms.track { HomeViewModel(expenses, labels, prefs, dates) }
+        vms.track { HomeViewModel(expenses, labels, methods, prefs, dates) }
 
     private suspend fun HomeViewModel.await(cond: (HomeState) -> Boolean) =
         withTimeout(15_000) { state.first(cond) }
@@ -85,6 +88,19 @@ class HomeViewModelTest {
         assertEquals(4550L, rows.single().amountCentavos)
         assertEquals(food.id, rows.single().labelId)
         assertEquals("", m.await { it.input == "" }.input)
+        assertEquals("Cash", rows.single().paymentMethodName) // no last-used yet: first active
+    }
+
+    @Test fun enterSavesWithLastUsedPaymentMethod() = runBlocking {
+        val maya = methods.active().first { it.name == "Maya" }
+        prefs.setLastPaymentMethodId(maya.id)
+        val m = vm()
+        m.await { it.label != null }
+        m.onKey(Key.Digit(7))
+        m.await { it.input == "7" }
+        m.enter()
+        withTimeout(15_000) { m.toasts.first() }
+        assertEquals(maya.id, expenses.rowsForDay(expenses.today()).single().paymentMethodId)
     }
 
     @Test fun failedSaveRestoresInputAndToasts() = runBlocking {
@@ -106,7 +122,7 @@ class HomeViewModelTest {
         val transpo = byName("Transpo")
         val calls = mutableListOf<Long>()
         val m = vms.track {
-            HomeViewModel(expenses, labels, prefs, MutableStateFlow(expenses.today())) { id ->
+            HomeViewModel(expenses, labels, methods, prefs, MutableStateFlow(expenses.today())) { id ->
                 calls += id
                 prefs.setLastLabelId(id)
             }
@@ -144,7 +160,7 @@ class HomeViewModelTest {
     @Test fun rollsOverAtMidnight() = runBlocking {
         val day1 = expenses.today()
         val ticker = MutableStateFlow(day1)
-        expenses.add(48_500, byName("Food").id)
+        expenses.add(48_500, byName("Food").id, methods.active().first().id)
         val m = vm(ticker)
         assertEquals(48_500L, m.await { it.todayTotal == 48_500L }.todayTotal)
         ticker.value = day1.plusDays(1)

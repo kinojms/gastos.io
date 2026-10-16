@@ -13,10 +13,23 @@ data class LabelEntity(
     val isOther: Boolean = false,
 )
 
-@Entity("expenses", indices = [Index("timestamp"), Index("labelId")])
+/** Archived methods are hidden from pickers and swipes but keep their name in history. */
+@Entity("payment_methods")
+data class PaymentMethodEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val colorArgb: Int,
+    val position: Int,
+    val archived: Boolean = false,
+)
+
+@Entity("expenses", indices = [Index("timestamp"), Index("labelId"), Index("paymentMethodId")])
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val amountCentavos: Long,
     val labelId: Long,
     val timestamp: Long, // epoch millis
+    val paymentMethodId: Long,
+    val description: String? = null,
+    val notes: String? = null,
 )

@@ -11,6 +11,7 @@ import io.gastos.app.data.AppPrefs
 import io.gastos.app.data.ExpenseRepository
 import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelRepository
+import io.gastos.app.data.PaymentMethodRepository
 import io.gastos.app.export.ExportService
 import io.gastos.app.widget.GastosWidget
 import kotlinx.coroutines.CancellationException
@@ -33,6 +34,7 @@ class AppContainer(context: Context) {
     val expenses: ExpenseRepository =
         ExpenseRepository(db, Clock.systemUTC(), { ZoneId.systemDefault() }, ::onDataChanged)
     val labels: LabelRepository = LabelRepository(db, ::onDataChanged)
+    val paymentMethods: PaymentMethodRepository = PaymentMethodRepository(db, ::onDataChanged)
     val exportService: ExportService = ExportService(context.applicationContext, expenses)
 
     /** GitHub token, encrypted with the Android Keystore (touched lazily, on save/load only). */
@@ -54,6 +56,12 @@ class AppContainer(context: Context) {
     /** Saves the shared last-used label, then re-renders every widget so it shows the same label as Home. */
     suspend fun setLastLabel(id: Long) {
         prefs.setLastLabelId(id)
+        refreshWidgets()
+    }
+
+    /** Saves the shared last-used payment method, then re-renders every widget, like [setLastLabel]. */
+    suspend fun setLastPaymentMethod(id: Long) {
+        prefs.setLastPaymentMethodId(id)
         refreshWidgets()
     }
 

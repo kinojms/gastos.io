@@ -94,6 +94,7 @@ class BackupManagerTest {
 
     private suspend fun localLabels() = db.labelDao().all()
     private suspend fun localExpenses() = db.expenseDao().all()
+    private suspend fun cash() = db.paymentMethodDao().active().first { it.name == "Cash" }.id
 
     private fun remoteBackup() = BackupSerializer.encode(
         BackupFile(
@@ -115,7 +116,7 @@ class BackupManagerTest {
     }
 
     @Test fun backupUploadsAllDataWithCommitMessage() = runBlocking {
-        db.expenseDao().insert(ExpenseEntity(amountCentavos = 500, labelId = localLabels().first().id, timestamp = 9))
+        db.expenseDao().insert(ExpenseEntity(amountCentavos = 500, labelId = localLabels().first().id, timestamp = 9, paymentMethodId = cash()))
         github.sha = "abc"
         manager.startFresh()
 
@@ -144,7 +145,7 @@ class BackupManagerTest {
     }
 
     @Test fun restoreReplacesData() = runBlocking {
-        db.expenseDao().insert(ExpenseEntity(amountCentavos = 999, labelId = localLabels().first().id, timestamp = 5))
+        db.expenseDao().insert(ExpenseEntity(amountCentavos = 999, labelId = localLabels().first().id, timestamp = 5, paymentMethodId = cash()))
         github.remote = remoteBackup()
 
         val result = manager.restore()
@@ -157,14 +158,17 @@ class BackupManagerTest {
             ),
             localLabels(),
         )
-        assertEquals(listOf(ExpenseEntity(id = 40, amountCentavos = 12_345, labelId = 10, timestamp = 1_000)), localExpenses())
+        assertEquals(
+            listOf(ExpenseEntity(id = 40, amountCentavos = 12_345, labelId = 10, timestamp = 1_000, paymentMethodId = cash())),
+            localExpenses(),
+        )
         assertTrue(prefs.backupEnabled.first())
         assertEquals(1, dataChangedCalls)
         assertEquals(0, github.uploads.size)
     }
 
     @Test fun failedRestoreKeepsLocal() = runBlocking {
-        db.expenseDao().insert(ExpenseEntity(amountCentavos = 999, labelId = localLabels().first().id, timestamp = 5))
+        db.expenseDao().insert(ExpenseEntity(amountCentavos = 999, labelId = localLabels().first().id, timestamp = 5, paymentMethodId = cash()))
         val labelsBefore = localLabels()
         val expensesBefore = localExpenses()
         github.downloadError = GitHubException(401, "GitHub token is invalid or expired.")

@@ -1,5 +1,6 @@
 package io.gastos.app.data
 
+import io.gastos.app.domain.ExpenseText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Clock
@@ -18,14 +19,33 @@ class ExpenseRepository(
 
     fun today(): LocalDate = LocalDate.now(clock.withZone(zone()))
 
-    suspend fun add(amountCentavos: Long, labelId: Long): Long {
-        val id = dao.insert(ExpenseEntity(amountCentavos = amountCentavos, labelId = labelId, timestamp = clock.millis()))
+    suspend fun add(amountCentavos: Long, labelId: Long, paymentMethodId: Long, description: String? = null): Long {
+        val id = dao.insert(
+            ExpenseEntity(
+                amountCentavos = amountCentavos,
+                labelId = labelId,
+                timestamp = clock.millis(),
+                paymentMethodId = paymentMethodId,
+                description = ExpenseText.description(description),
+            ),
+        )
         onDataChanged()
         return id
     }
 
-    suspend fun update(id: Long, amountCentavos: Long, labelId: Long, timestamp: Long) {
-        dao.update(id, amountCentavos, labelId, timestamp)
+    suspend fun update(
+        id: Long,
+        amountCentavos: Long,
+        labelId: Long,
+        paymentMethodId: Long,
+        timestamp: Long,
+        description: String?,
+        notes: String?,
+    ) {
+        dao.update(
+            id, amountCentavos, labelId, paymentMethodId, timestamp,
+            ExpenseText.description(description), ExpenseText.notes(notes),
+        )
         onDataChanged()
     }
 
@@ -54,6 +74,10 @@ class ExpenseRepository(
 
     fun observeMonthByLabel(month: YearMonth): Flow<List<LabelTotal>> =
         monthRange(month, zone()).let { (s, e) -> dao.observeByLabel(s, e) }
+
+    /** Month totals per payment method, largest first; archived methods included. */
+    fun observeMonthByMethod(month: YearMonth): Flow<List<MethodTotal>> =
+        monthRange(month, zone()).let { (s, e) -> dao.observeByMethod(s, e) }
 
     suspend fun rowsForDay(date: LocalDate): List<ExpenseRow> = dayRange(date).let { (s, e) -> dao.rows(s, e) }
 

@@ -6,6 +6,7 @@ import io.gastos.app.data.AppPrefs
 import io.gastos.app.data.ExpenseRepository
 import io.gastos.app.data.LabelEntity
 import io.gastos.app.data.LabelRepository
+import io.gastos.app.data.PaymentMethodRepository
 import io.gastos.app.domain.AmountInput
 import io.gastos.app.domain.Key
 import io.gastos.app.domain.Money
@@ -40,6 +41,7 @@ data class HomeState(
 class HomeViewModel(
     private val expenses: ExpenseRepository,
     labels: LabelRepository,
+    private val methods: PaymentMethodRepository,
     private val prefs: AppPrefs,
     /** Emits the current date, and again whenever it changes (midnight rollover). */
     dates: Flow<LocalDate> = dateTicker(expenses),
@@ -86,7 +88,10 @@ class HomeViewModel(
         viewModelScope.launch {
             val message = try {
                 // Leaving Home must not cancel an insert the user already confirmed with Enter.
-                withContext(NonCancellable) { expenses.add(cents, label.id) }
+                withContext(NonCancellable) {
+                    val method = prefs.resolvePaymentMethod(methods.active())
+                    expenses.add(cents, label.id, method.id)
+                }
                 "Added ${Money.format(cents)} · ${label.name}"
             } catch (e: CancellationException) {
                 throw e

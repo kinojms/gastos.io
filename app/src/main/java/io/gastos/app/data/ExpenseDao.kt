@@ -10,8 +10,19 @@ interface ExpenseDao {
     @Insert
     suspend fun insert(expense: ExpenseEntity): Long
 
-    @Query("UPDATE expenses SET amountCentavos = :amount, labelId = :labelId, timestamp = :timestamp WHERE id = :id")
-    suspend fun update(id: Long, amount: Long, labelId: Long, timestamp: Long)
+    @Query(
+        "UPDATE expenses SET amountCentavos = :amount, labelId = :labelId, paymentMethodId = :paymentMethodId, " +
+            "timestamp = :timestamp, description = :description, notes = :notes WHERE id = :id"
+    )
+    suspend fun update(
+        id: Long,
+        amount: Long,
+        labelId: Long,
+        paymentMethodId: Long,
+        timestamp: Long,
+        description: String?,
+        notes: String?,
+    )
 
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun delete(id: Long)
@@ -32,26 +43,17 @@ interface ExpenseDao {
     suspend fun countByLabel(labelId: Long): Int
 
     @Query(
-        "SELECT e.id AS id, e.amountCentavos AS amountCentavos, e.timestamp AS timestamp, " +
-            "e.labelId AS labelId, l.name AS labelName, l.colorArgb AS labelColor " +
-            "FROM expenses e JOIN labels l ON l.id = e.labelId " +
-            "WHERE e.timestamp >= :start AND e.timestamp < :end ORDER BY e.timestamp DESC, e.id DESC"
+        ROW_SELECT + "WHERE e.timestamp >= :start AND e.timestamp < :end ORDER BY e.timestamp DESC, e.id DESC"
     )
     fun observeRows(start: Long, end: Long): Flow<List<ExpenseRow>>
 
     @Query(
-        "SELECT e.id AS id, e.amountCentavos AS amountCentavos, e.timestamp AS timestamp, " +
-            "e.labelId AS labelId, l.name AS labelName, l.colorArgb AS labelColor " +
-            "FROM expenses e JOIN labels l ON l.id = e.labelId " +
-            "WHERE e.timestamp >= :start AND e.timestamp < :end ORDER BY e.timestamp DESC, e.id DESC"
+        ROW_SELECT + "WHERE e.timestamp >= :start AND e.timestamp < :end ORDER BY e.timestamp DESC, e.id DESC"
     )
     suspend fun rows(start: Long, end: Long): List<ExpenseRow>
 
     @Query(
-        "SELECT e.id AS id, e.amountCentavos AS amountCentavos, e.timestamp AS timestamp, " +
-            "e.labelId AS labelId, l.name AS labelName, l.colorArgb AS labelColor " +
-            "FROM expenses e JOIN labels l ON l.id = e.labelId " +
-            "WHERE e.timestamp >= :start AND e.timestamp < :end ORDER BY e.timestamp ASC, e.id ASC"
+        ROW_SELECT + "WHERE e.timestamp >= :start AND e.timestamp < :end ORDER BY e.timestamp ASC, e.id ASC"
     )
     suspend fun rowsOldestFirst(start: Long, end: Long): List<ExpenseRow>
 
@@ -71,4 +73,21 @@ interface ExpenseDao {
             "GROUP BY l.id ORDER BY totalCentavos DESC, l.position ASC"
     )
     fun observeByLabel(start: Long, end: Long): Flow<List<LabelTotal>>
+
+    /** Archived methods are included: their past spending still counts. */
+    @Query(
+        "SELECT p.id AS paymentMethodId, p.name AS name, p.colorArgb AS colorArgb, SUM(e.amountCentavos) AS totalCentavos " +
+            "FROM expenses e JOIN payment_methods p ON p.id = e.paymentMethodId " +
+            "WHERE e.timestamp >= :start AND e.timestamp < :end " +
+            "GROUP BY p.id ORDER BY totalCentavos DESC, p.position ASC"
+    )
+    fun observeByMethod(start: Long, end: Long): Flow<List<MethodTotal>>
 }
+
+/** Columns of [ExpenseRow], joined with its label and payment method. Append a WHERE clause. */
+private const val ROW_SELECT =
+    "SELECT e.id AS id, e.amountCentavos AS amountCentavos, e.timestamp AS timestamp, " +
+        "e.labelId AS labelId, l.name AS labelName, l.colorArgb AS labelColor, " +
+        "e.paymentMethodId AS paymentMethodId, p.name AS paymentMethodName, p.colorArgb AS paymentMethodColor, " +
+        "e.description AS description, e.notes AS notes " +
+        "FROM expenses e JOIN labels l ON l.id = e.labelId JOIN payment_methods p ON p.id = e.paymentMethodId "

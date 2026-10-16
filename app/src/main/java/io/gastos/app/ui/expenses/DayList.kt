@@ -88,7 +88,9 @@ fun DayList(vm: ExpensesViewModel, date: LocalDate, modifier: Modifier = Modifie
             row = row,
             labels = labels,
             zone = ZoneId.systemDefault(),
-            onSave = { amount, labelId, d, t -> vm.saveEdit(row.id, amount, labelId, d, t) },
+            onSave = { amount, labelId, d, t ->
+                vm.saveEdit(row.id, amount, labelId, row.paymentMethodId, d, t, row.description, row.notes)
+            },
             onDelete = { vm.delete(row.id) },
             onDismiss = { editing = null },
         )

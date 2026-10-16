@@ -62,6 +62,9 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+    // MigrationTestHelper reads the exported Room schemas from the app's assets. Robolectric only sees the
+    // merged debug assets (src/test assets never reach it), so the schemas ship in debug builds only.
+    sourceSets["debug"].assets.srcDir("$projectDir/schemas")
 }
 
 // Fail release packaging instead of silently signing with the debug key. Debug builds and unit tests

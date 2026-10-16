@@ -49,7 +49,7 @@ class LabelRepositoryTest {
 
     @Test fun deleteMovesExpensesToOther() = runBlocking {
         val hobbies = byName("Hobbies")
-        val e = expenses.add(1000, hobbies.id)
+        val e = expenses.add(1000, hobbies.id, db.paymentMethodDao().active().first().id)
         labels.delete(hobbies.id)
         val rows = expenses.rowsForDay(expenses.today())
         assertEquals(e, rows.single().id)
