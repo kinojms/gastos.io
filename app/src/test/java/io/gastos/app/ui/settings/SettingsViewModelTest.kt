@@ -9,6 +9,7 @@ import io.gastos.app.backup.GitHubException
 import io.gastos.app.backup.TokenCipher
 import io.gastos.app.backup.TokenStore
 import io.gastos.app.data.AppPrefs
+import io.gastos.app.ui.ViewModelTracker
 import io.gastos.app.data.GastosDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
@@ -68,7 +70,9 @@ class SettingsViewModelTest {
     }
 
     @Before fun setUp() {
-        Dispatchers.setMain(Dispatchers.Unconfined)
+        // A real single-threaded Main, like production: Unconfined lets VM coroutines run concurrently on
+        // DataStore threads, which made combine()-based state (canUseBackup) flaky.
+        Dispatchers.setMain(main)
         val context = ApplicationProvider.getApplicationContext<Context>()
         db = GastosDatabase.createInMemory(context)
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -78,16 +82,21 @@ class SettingsViewModelTest {
         tokens.clear()
     }
 
+    private val vms = ViewModelTracker()
+    private val main = java.util.concurrent.Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+
     @After fun tearDown() {
+        vms.clear() // cancel VM coroutines before resetting Main
         db.close()
         scope.cancel()
         prefsFile.delete()
         Dispatchers.resetMain()
+        main.close()
     }
 
     private fun vm(): SettingsViewModel {
         val manager = BackupManager(db, prefs, tokens, FakeGitHub(), Clock.systemUTC()) { }
-        return SettingsViewModel(prefs, tokens, manager, io = Dispatchers.Unconfined)
+        return vms.track { SettingsViewModel(prefs, tokens, manager, io = Dispatchers.Unconfined) }
     }
 
     @Test fun invalidRepoShowsErrorAndDoesNotSave() = runBlocking {
@@ -197,7 +206,7 @@ class SettingsViewModelTest {
         }
         val badTokens = TokenStore(context.getSharedPreferences("settings_test_bad", Context.MODE_PRIVATE), failing)
         val manager = BackupManager(db, prefs, badTokens, FakeGitHub(), Clock.systemUTC()) { }
-        val vm = SettingsViewModel(prefs, badTokens, manager, io = Dispatchers.Unconfined)
+        val vm = vms.track { SettingsViewModel(prefs, badTokens, manager, io = Dispatchers.Unconfined) }
         vm.repoInput.value = "o/r"
         vm.tokenInput.value = "secret"
         vm.save()!!.join()
@@ -217,7 +226,7 @@ class SettingsViewModelTest {
         assertNull(badTokens.load())
         prefs.setBackupRepo("o/r")
         val manager = BackupManager(db, prefs, badTokens, FakeGitHub(), Clock.systemUTC()) { }
-        val vm = SettingsViewModel(prefs, badTokens, manager, io = Dispatchers.Unconfined)
+        val vm = vms.track { SettingsViewModel(prefs, badTokens, manager, io = Dispatchers.Unconfined) }
         withTimeout(5_000) { vm.repoInput.first { it == "o/r" } } // init ran past the token load
         kotlinx.coroutines.delay(100)
         assertFalse(vm.hasToken.value)

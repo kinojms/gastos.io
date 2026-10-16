@@ -4,6 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.gastos.app.data.ExpenseRepository
 import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelRepository
+import io.gastos.app.ui.ViewModelTracker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,12 +40,18 @@ class ExpensesViewModelTest {
         expenses = ExpenseRepository(db, Clock.system(manila), { manila }) { }
     }
 
+    private val vms = ViewModelTracker()
+
     @After fun tearDown() {
+        vms.clear() // cancel VM coroutines before resetting Main
         db.close()
         Dispatchers.resetMain()
     }
 
     private fun vm(month: YearMonth = YearMonth.of(2026, 10)) =
+        vms.track { newVm(month) }
+
+    private fun newVm(month: YearMonth = YearMonth.of(2026, 10)) =
         ExpensesViewModel(expenses, labels, MutableStateFlow(expenses.today()), { manila }, month)
 
     @Test fun confirmedDeleteSurvivesLeavingScreen() = runBlocking {
@@ -52,7 +59,7 @@ class ExpensesViewModelTest {
         val store = androidx.lifecycle.ViewModelStore()
         val factory = object : androidx.lifecycle.ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = vm() as T
+            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = newVm() as T
         }
         val m = androidx.lifecycle.ViewModelProvider(store, factory)[ExpensesViewModel::class.java]
         m.delete(id)

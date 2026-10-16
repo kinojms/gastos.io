@@ -7,6 +7,7 @@ import io.gastos.app.data.ExpenseRepository
 import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelRepository
 import io.gastos.app.domain.Key
+import io.gastos.app.ui.ViewModelTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,7 +55,10 @@ class HomeViewModelTest {
         prefs = AppPrefs(PreferenceDataStoreFactory.create(scope = scope) { prefsFile })
     }
 
+    private val vms = ViewModelTracker()
+
     @After fun tearDown() {
+        vms.clear() // cancel VM coroutines before resetting Main
         db.close()
         scope.cancel()
         prefsFile.delete()
@@ -62,7 +66,7 @@ class HomeViewModelTest {
     }
 
     private fun vm(dates: kotlinx.coroutines.flow.Flow<LocalDate> = MutableStateFlow(expenses.today())) =
-        HomeViewModel(expenses, labels, prefs, dates)
+        vms.track { HomeViewModel(expenses, labels, prefs, dates) }
 
     private suspend fun HomeViewModel.await(cond: (HomeState) -> Boolean) =
         withTimeout(15_000) { state.first(cond) }
@@ -101,9 +105,11 @@ class HomeViewModelTest {
     @Test fun selectingLabelUsesInjectedSetter() = runBlocking {
         val transpo = byName("Transpo")
         val calls = mutableListOf<Long>()
-        val m = HomeViewModel(expenses, labels, prefs, MutableStateFlow(expenses.today())) { id ->
-            calls += id
-            prefs.setLastLabelId(id)
+        val m = vms.track {
+            HomeViewModel(expenses, labels, prefs, MutableStateFlow(expenses.today())) { id ->
+                calls += id
+                prefs.setLastLabelId(id)
+            }
         }
         m.await { it.label != null }
         m.selectLabel(transpo.id)

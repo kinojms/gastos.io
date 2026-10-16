@@ -68,7 +68,8 @@ class SettingsViewModel(
         viewModelScope.launch {
             val saved = prefs.backupRepo.first().orEmpty()
             if (repoInput.value.isEmpty()) repoInput.value = saved // don't clobber early typing
-            tokenSaved.value = withContext(io) { tokens.load() != null }
+            // Only ever raise the flag: a Save that finished while this load ran must not be clobbered.
+            if (withContext(io) { tokens.load() != null }) tokenSaved.value = true
         }
     }
 
