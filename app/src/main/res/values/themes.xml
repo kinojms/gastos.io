@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch/window theme. Compose draws GastosTheme on top; this only colors the window before first frame. -->
+    <style name="Theme.Gastos" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_bg</item>
+    </style>
+    <color name="window_bg">#EEF1F4</color>
+</resources>
