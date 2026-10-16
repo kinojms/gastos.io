@@ -2,6 +2,7 @@ package io.gastos.app.ui
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -10,6 +11,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import io.gastos.app.AppContainer
+import java.time.LocalDate
+import io.gastos.app.ui.expenses.DayScreen
+import io.gastos.app.ui.expenses.ExpensesScreen
+import io.gastos.app.ui.expenses.ExpensesViewModel
 import io.gastos.app.ui.home.HomeScreen
 import io.gastos.app.ui.home.HomeViewModel
 
@@ -33,6 +38,13 @@ fun GastosNavHost(container: AppContainer) {
                 HomeViewModel(container.expenses, container.labels, container.prefs) as T
         }
     }
+    val expensesFactory = remember(container) {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                ExpensesViewModel(container.expenses, container.labels) as T
+        }
+    }
     NavHost(nav, startDestination = Routes.HOME) {
         composable(Routes.HOME) {
             HomeScreen(
@@ -43,8 +55,25 @@ fun GastosNavHost(container: AppContainer) {
             )
         }
         // Placeholders; later tasks replace these.
-        composable(Routes.EXPENSES) { Text("Expenses") }
-        composable(Routes.DAY) { Text("Day ${it.arguments?.getString("isoDate")}") }
+        composable(Routes.EXPENSES) {
+            ExpensesScreen(
+                vm = viewModel<ExpensesViewModel>(factory = expensesFactory),
+                onBack = { nav.popBackStack() },
+                onOpenDay = { nav.navigate(Routes.day(it)) },
+            )
+        }
+        composable(Routes.DAY) {
+            val date = runCatching { LocalDate.parse(it.arguments?.getString("isoDate")) }.getOrNull()
+            if (date == null) {
+                LaunchedEffect(Unit) { nav.popBackStack() }
+            } else {
+                DayScreen(
+                    vm = viewModel<ExpensesViewModel>(factory = expensesFactory),
+                    date = date,
+                    onBack = { nav.popBackStack() },
+                )
+            }
+        }
         composable(Routes.LABELS) { Text("Labels") }
         composable(Routes.SETTINGS) { Text("Settings") }
     }
