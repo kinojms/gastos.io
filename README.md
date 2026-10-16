@@ -1,15 +1,25 @@
 # Gastos.io
 
-A fast, mobile-first expense tracker for personal use.
+A fast, personal expense tracker for Android. Open the app, type an amount, hit enter.
 
-## Idea
+## Install
 
-Open the app, type an amount, hit enter. Done — it's logged for today.
+1. On the phone, log into GitHub in the browser (the repo is private).
+2. Open the repo's Releases page and download the latest `gastos-vX.Y.Z.apk`.
+3. Open the file. If asked, allow "Install unknown apps" for that browser or file manager (Samsung: Settings > Apps > the browser/My Files > Install unknown apps).
+4. Install. Later versions install over the old one.
 
-## Features (planned)
+## Widget
 
-- **Numpad-first home screen** — big numpad + enter button, front and center
-- **Today's date** shown on the home screen
-- **Category picker** — tag each expense (e.g. Food, Transpo, Hobbies)
-- **Expenses list** — view and edit past entries
-- **Custom categories** — add, rename, or remove labels
+Long-press the home screen, tap Widgets, find Gastos.io, and add it.
+
+## Backup setup
+
+1. On GitHub, create a private repo named `expenses-data` and add a README so it is not empty.
+2. Create a fine-grained personal access token limited to that repo only, with Contents set to read and write.
+3. In the app, open Settings and paste `owner/expenses-data` and the token.
+4. On a new phone, choose Restore to load the backup. On a first-time setup choose Start fresh. Backup stays off until you pick one.
+
+## Building
+
+`./gradlew testDebugUnitTest assembleRelease`. For a signed release, put `storeFile`, `storePassword`, `keyAlias`, `keyPassword` in a gitignored `keystore.properties` at the repo root; without it the release build is signed with the debug key.
