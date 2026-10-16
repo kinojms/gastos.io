@@ -9,6 +9,7 @@
 - Commit using the user's local git identity.
 
 ## Project
+- App name: Gastos.io (package `io.gastos.app`).
 - Personal expense tracker, mobile-first, optimized for speed of entry.
 - Home screen focus: numpad + enter button. Entering an amount adds it to today's expenses.
 - Home screen also shows: current date, category picker, button to open the expenses list.

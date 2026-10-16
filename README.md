@@ -1,4 +1,4 @@
-# Expenses Tracker
+# Gastos.io
 
 A fast, mobile-first expense tracker for personal use.
 

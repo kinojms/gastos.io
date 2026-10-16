@@ -1,6 +1,10 @@
-# Expenses Tracker — Design
+# Gastos.io — Design
 
 Date: 2026-10-16
+
+## Name
+
+**Gastos.io** ("gastos" is Tagalog for expenses). App label on the phone: "Gastos.io". Android package `io.gastos.app`. *(package is Claude's call)*
 
 ## Intent
 
