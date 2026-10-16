@@ -33,13 +33,15 @@ class ExportService(
     private val context: Context,
     private val expenses: ExpenseRepository,
     private val zone: () -> ZoneId = { ZoneId.systemDefault() },
+    private val uriFor: (File) -> Uri = { FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it) },
 ) {
     suspend fun exportDay(date: LocalDate, format: Format): Uri = exportDayFile(date, format).uri
 
     suspend fun exportMonth(month: YearMonth, format: Format): Uri = exportMonthFile(month, format).uri
 
     suspend fun exportDayFile(date: LocalDate, format: Format): ExportResult {
-        val rows = expenses.rowsForDay(date)
+        // rowsForDay is newest-first (UI order); exports are chronological like the month export.
+        val rows = expenses.rowsForDay(date).sortedWith(compareBy({ it.timestamp }, { it.id }))
         return store(ExportFiles.dayName(date, format.ext), format, bytes(rows, format))
     }
 
@@ -87,6 +89,6 @@ class ExportService(
         val dir = File(context.cacheDir, "exports").apply { mkdirs() }
         val file = File(dir, name)
         file.writeBytes(data)
-        ExportResult(FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file), name, format.mime)
+        ExportResult(uriFor(file), name, format.mime)
     }
 }

@@ -41,4 +41,9 @@ class CsvExporterTest {
         val out = text(CsvExporter.write(listOf(row("Food", 100, LocalTime.of(15, 5))), zone))
         assertEquals("2026-10-16,15:05,Food,1.00", out.lines()[1])
     }
+
+    @Test fun csvQuotesNewlineInLabel() {
+        val out = text(CsvExporter.write(listOf(row("Line1\nLine2", 100)), zone))
+        assertEquals("Date,Time,Label,Amount\n2026-10-16,08:10,\"Line1\nLine2\",1.00\n,,Total,1.00", out)
+    }
 }

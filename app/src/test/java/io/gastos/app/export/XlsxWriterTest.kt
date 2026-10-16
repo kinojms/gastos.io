@@ -6,6 +6,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Document
+import org.w3c.dom.Element
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.zip.ZipInputStream
@@ -76,5 +79,52 @@ class XlsxWriterTest {
     @Test fun fileNames() {
         assertEquals("expenses-2026-10-16.csv", ExportFiles.dayName(LocalDate.of(2026, 10, 16), "csv"))
         assertEquals("expenses-2026-10.xlsx", ExportFiles.monthName(YearMonth.of(2026, 10), "xlsx"))
+    }
+
+    private fun parse(xml: String): Document = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+        .newDocumentBuilder().parse(ByteArrayInputStream(xml.toByteArray(Charsets.UTF_8)))
+
+    private fun children(e: Element, name: String): Int {
+        var n = 0
+        var c = e.firstChild
+        while (c != null) { if (c is Element && c.localName == name) n++; c = c.nextSibling }
+        return n
+    }
+
+    @Test fun xlsxPackageIsWellFormedAndConsistent() {
+        val by = Sheet("By label", listOf("Label", "Amount"), listOf(listOf(Cell.Text("  leading & <b>"), Cell.Peso(100))), 0, listOf(1), listOf(22.0, 14.0))
+        val parts = unzip(XlsxWriter.write(listOf(expensesSheet("  spaced label"), by)))
+        val docs = parts.mapValues { parse(it.value) }
+
+        // styles counts match children
+        val styles = docs.getValue("xl/styles.xml").documentElement
+        for ((container, child) in listOf("numFmts" to "numFmt", "fonts" to "font", "fills" to "fill", "borders" to "border", "cellXfs" to "xf", "cellStyleXfs" to "xf", "cellStyles" to "cellStyle")) {
+            val el = styles.getElementsByTagNameNS("*", container).item(0) as Element
+            assertEquals(container, el.getAttribute("count").toInt(), children(el, child))
+        }
+
+        // workbook r:ids resolve to rels, whose targets exist
+        val relNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        val rels = docs.getValue("xl/_rels/workbook.xml.rels").getElementsByTagNameNS("*", "Relationship")
+        val relTargets = (0 until rels.length).associate { val r = rels.item(it) as Element; r.getAttribute("Id") to r.getAttribute("Target") }
+        val sheetEls = docs.getValue("xl/workbook.xml").getElementsByTagNameNS("*", "sheet")
+        assertEquals(2, sheetEls.length)
+        for (i in 0 until sheetEls.length) {
+            val id = (sheetEls.item(i) as Element).getAttributeNS(relNs, "id")
+            val target = relTargets[id] ?: error("no relationship $id")
+            assertTrue("missing xl/$target", "xl/$target" in parts)
+        }
+
+        // every part has a content type
+        val ct = docs.getValue("[Content_Types].xml")
+        val defaults = ct.getElementsByTagNameNS("*", "Default").let { n -> (0 until n.length).map { (n.item(it) as Element).getAttribute("Extension") }.toSet() }
+        val overrides = ct.getElementsByTagNameNS("*", "Override").let { n -> (0 until n.length).map { (n.item(it) as Element).getAttribute("PartName") }.toSet() }
+        for (name in parts.keys.filter { it != "[Content_Types].xml" }) {
+            assertTrue("no content type for $name", "/$name" in overrides || name.substringAfterLast('.') in defaults)
+        }
+
+        // control chars removed, leading spaces preserved
+        val sheet1 = parts.getValue("xl/worksheets/sheet1.xml")
+        assertTrue(sheet1.contains("xml:space=\"preserve\">  spaced label<"))
     }
 }

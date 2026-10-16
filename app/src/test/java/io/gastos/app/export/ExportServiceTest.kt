@@ -1,0 +1,46 @@
+package io.gastos.app.export
+
+import androidx.test.core.app.ApplicationProvider
+import io.gastos.app.data.ExpenseRepository
+import io.gastos.app.data.GastosDatabase
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import java.io.File
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+
+@RunWith(RobolectricTestRunner::class)
+class ExportServiceTest {
+    private val manila = ZoneId.of("Asia/Manila")
+    private lateinit var db: GastosDatabase
+
+    @Before fun setUp() {
+        db = GastosDatabase.createInMemory(ApplicationProvider.getApplicationContext())
+    }
+
+    @After fun tearDown() = db.close()
+
+    @Test fun dayExportIsOldestFirst() = runBlocking {
+        val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val repo = ExpenseRepository(db, Clock.system(manila), { manila }) { }
+        val d = LocalDate.of(2026, 10, 16)
+        val labelId = db.labelDao().all().first().id
+        fun ts(h: Int) = d.atTime(h, 0).atZone(manila).toInstant().toEpochMilli()
+        val a = repo.add(100, labelId)
+        val b = repo.add(200, labelId)
+        val c = repo.add(300, labelId)
+        repo.update(a, 100, labelId, ts(18))
+        repo.update(b, 200, labelId, ts(8))
+        repo.update(c, 300, labelId, ts(12))
+        val r = ExportService(ctx, repo, { manila }, { android.net.Uri.fromFile(it) }).exportDayFile(d, Format.CSV)
+        val lines = String(File(ctx.cacheDir, "exports/${r.fileName}").readBytes(), 3, File(ctx.cacheDir, "exports/${r.fileName}").length().toInt() - 3, Charsets.UTF_8).lines()
+        assertEquals(listOf("08:00", "12:00", "18:00"), lines.drop(1).take(3).map { it.split(",")[1] })
+    }
+}
