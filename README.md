@@ -17,9 +17,9 @@ Long-press the home screen, tap Widgets, find Gastos.io, and add it.
 
 1. On GitHub, create a private repo named `expenses-data` and add a README so it is not empty.
 2. Create a fine-grained personal access token limited to that repo only, with Contents set to read and write.
-3. In the app, open Settings and paste `owner/expenses-data` and the token.
-4. On a new phone, choose Restore to load the backup. On a first-time setup choose Start fresh. Backup stays off until you pick one.
+3. In the app, open Settings, paste `owner/expenses-data` and the token, and tap Save.
+4. On a new phone, tap Restore from GitHub to load the backup. On a first-time setup tap Start fresh. Backup stays off until you pick one.
 
 ## Building
 
-`./gradlew testDebugUnitTest assembleRelease`. For a signed release, put `storeFile`, `storePassword`, `keyAlias`, `keyPassword` in a gitignored `keystore.properties` at the repo root; without it the release build is signed with the debug key.
+`./gradlew testDebugUnitTest assembleRelease`. For a signed release, put `storeFile`, `storePassword`, `keyAlias`, `keyPassword` in a gitignored `keystore.properties` at the repo root. Without it, release builds fail; pass `-PallowDebugSigning` to sign a test release with the debug key instead. Debug builds and unit tests don't need the file.

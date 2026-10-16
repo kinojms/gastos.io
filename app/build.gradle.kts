@@ -8,6 +8,15 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val hasReleaseKey = keystoreProps.getProperty("storeFile") != null
+
+/** Opt-in for a debug-signed release (e.g. a quick local test). Never the default. */
+val allowDebugSigning = providers.gradleProperty("allowDebugSigning").isPresent
+
 android {
     namespace = "io.gastos.app"
     compileSdk = 35
@@ -19,12 +28,6 @@ android {
         versionCode = 1
         versionName = "1.0.0"
     }
-
-    val keystoreProps = Properties().apply {
-        val f = rootProject.file("keystore.properties")
-        if (f.exists()) f.inputStream().use { load(it) }
-    }
-    val hasReleaseKey = keystoreProps.getProperty("storeFile") != null
 
     signingConfigs {
         if (hasReleaseKey) {
@@ -42,6 +45,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Debug key only reaches a release when -PallowDebugSigning is passed (checkReleaseSigning enforces it).
             signingConfig = if (hasReleaseKey) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
@@ -59,6 +63,23 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
 }
+
+// Fail release packaging instead of silently signing with the debug key. Debug builds and unit tests
+// never depend on these tasks, so they keep working without keystore.properties.
+val checkReleaseSigning = tasks.register("checkReleaseSigning") {
+    val ok = hasReleaseKey || allowDebugSigning
+    doLast {
+        if (!ok) {
+            throw GradleException(
+                "Release signing key missing: create keystore.properties at the repo root with storeFile, " +
+                    "storePassword, keyAlias and keyPassword (see README > Building). " +
+                    "To build a release signed with the debug key anyway, pass -PallowDebugSigning.",
+            )
+        }
+    }
+}
+tasks.matching { it.name in setOf("validateSigningRelease", "packageRelease", "signReleaseBundle") }
+    .configureEach { dependsOn(checkReleaseSigning) }
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
