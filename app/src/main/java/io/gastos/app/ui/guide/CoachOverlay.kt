@@ -78,6 +78,9 @@ private const val SCRIM_ALPHA = 0.65f
 private const val STEP_MS = 250
 private const val HAND_LOOP_MS = 1600
 private val CutoutPadding = 8.dp
+
+/** Small targets sit close to neighbours (history icon beside the overflow button), so they get less. */
+private val SmallTargetPadding = 3.dp
 private val CutoutRadius = 16.dp
 private val BubbleMargin = 16.dp
 private val BubbleMaxWidth = 360.dp
@@ -109,8 +112,9 @@ fun CoachOverlay(
     val bubbleBounds = remember { mutableStateOf(Rect.Zero) }
 
     // Targets report root coordinates; the overlay draws in its own.
+    val pad = if (step.target == GuideTarget.HISTORY_ICON) SmallTargetPadding else CutoutPadding
     val cutout = targets.get(step.target)?.let {
-        CoachLayout.cutout(it.translate(-origin), with(density) { CutoutPadding.toPx() })
+        CoachLayout.cutout(it.translate(-origin), with(density) { pad.toPx() })
     }
     val hole = cutout?.let { animateRectAsState(it, tween(STEP_MS), label = "cutout").value }
 
@@ -168,7 +172,7 @@ fun CoachOverlay(
 
         val axis = step.swipeAxis
         if (hole != null && axis != null) {
-            if (reducedMotion) StaticHand(hole, axis, colors.accent) else AnimatedHand(hole, axis, colors.accent)
+            if (reducedMotion) StaticHand(hole, axis, colors.accent, colors.fg) else AnimatedHand(hole, axis, colors.accent, colors.fg)
         }
 
         val topInset = WindowInsets.systemBars.getTop(density)
@@ -252,7 +256,7 @@ private fun DrawScope.reach(hole: Rect, axis: HomeSwipe.Axis): Float {
 
 /** A fingertip sliding across the hole on a loop, with a fading trail behind it. */
 @Composable
-private fun AnimatedHand(hole: Rect, axis: HomeSwipe.Axis, accent: Color) {
+private fun AnimatedHand(hole: Rect, axis: HomeSwipe.Axis, accent: Color, ink: Color) {
     val transition = rememberInfiniteTransition(label = "hand")
     val progress by transition.animateFloat(
         initialValue = 0f,
@@ -276,7 +280,7 @@ private fun AnimatedHand(hole: Rect, axis: HomeSwipe.Axis, accent: Color) {
         val tip = start + dir * (2f * reach * t)
         for (i in 4 downTo 1) {
             val back = tip - dir * (i * 10.dp.toPx() * t)
-            drawCircle(Color.White.copy(alpha = alpha * 0.12f * (5 - i)), radius = (16 - i * 2).dp.toPx(), center = back)
+            drawCircle(ink.copy(alpha = alpha * 0.12f * (5 - i)), radius = (16 - i * 2).dp.toPx(), center = back)
         }
         drawFingertip(tip, accent, alpha)
     }
@@ -284,14 +288,14 @@ private fun AnimatedHand(hole: Rect, axis: HomeSwipe.Axis, accent: Color) {
 
 /** Reduced motion: the fingertip rests in the middle with arrows both ways along the axis. */
 @Composable
-private fun StaticHand(hole: Rect, axis: HomeSwipe.Axis, accent: Color) {
+private fun StaticHand(hole: Rect, axis: HomeSwipe.Axis, accent: Color, ink: Color) {
     Canvas(Modifier.fillMaxSize().clearAndSetSemantics { }) {
         val c = hole.center
         drawFingertip(c, accent, 1f)
         val dir = direction(axis)
         val gap = 34.dp.toPx()
-        drawChevron(c + dir * gap, dir)
-        drawChevron(c - dir * gap, -dir)
+        drawChevron(c + dir * gap, dir, ink)
+        drawChevron(c - dir * gap, -dir, ink)
     }
 }
 
@@ -300,7 +304,7 @@ private fun DrawScope.drawFingertip(center: Offset, accent: Color, alpha: Float)
     drawCircle(accent.copy(alpha = alpha), radius = 16.dp.toPx(), center = center, style = Stroke(2.dp.toPx()))
 }
 
-private fun DrawScope.drawChevron(tip: Offset, dir: Offset) {
+private fun DrawScope.drawChevron(tip: Offset, dir: Offset, color: Color) {
     val size = 9.dp.toPx()
     val normal = Offset(-dir.y, dir.x)
     val back = tip - dir * size
@@ -309,5 +313,5 @@ private fun DrawScope.drawChevron(tip: Offset, dir: Offset) {
         lineTo(tip.x, tip.y)
         lineTo(back.x - normal.x * size, back.y - normal.y * size)
     }
-    drawPath(path, Color.White, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    drawPath(path, color, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
 }

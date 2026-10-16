@@ -129,6 +129,9 @@ fun HomeScreen(
     // While the tour runs, only its swipe, Next/Done and Skip do anything.
     val touring = tourStep != null
     BackHandler(enabled = touring) { guide.skip() }
+    // TalkBack must not reach the dimmed controls; only the swipe area (its actions) on swipe steps stays.
+    val hidden: Modifier = if (touring) Modifier.clearAndSetSemantics { } else Modifier
+    val swipeHidden: Modifier = if (touring && tourStep?.swipeAxis == null) Modifier.clearAndSetSemantics { } else Modifier
 
     LaunchedEffect(Unit) { guide.startIfUnseen() }
     LaunchedEffect(touring) {
@@ -201,7 +204,7 @@ fun HomeScreen(
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp),
+                Modifier.fillMaxWidth().then(hidden).padding(horizontal = 18.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
@@ -234,7 +237,7 @@ fun HomeScreen(
                 state = state,
                 onMethod = { onSwipe(HomeSwipe.Axis.METHOD, it) },
                 onLabel = { onSwipe(HomeSwipe.Axis.LABEL, it) },
-                modifier = Modifier.weight(1f).fillMaxWidth().guideTarget(targets, GuideTarget.SWIPE_AREA),
+                modifier = Modifier.weight(1f).fillMaxWidth().then(swipeHidden).guideTarget(targets, GuideTarget.SWIPE_AREA),
             )
 
             DescriptionField(
@@ -243,6 +246,7 @@ fun HomeScreen(
                 locked = touring,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .then(hidden)
                     .padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
                     .onGloballyPositioned { bounds.field = it }
                     .guideTarget(targets, GuideTarget.DESCRIPTION),
@@ -250,7 +254,7 @@ fun HomeScreen(
 
             Numpad(
                 onKey = { key -> if (!touring) { focus.clearFocus(); vm.onKey(key) } },
-                modifier = Modifier.guideTarget(targets, GuideTarget.NUMPAD, part = 0),
+                modifier = Modifier.then(hidden).guideTarget(targets, GuideTarget.NUMPAD, part = 0),
             )
             Button(
                 onClick = { if (!touring) { focus.clearFocus(); vm.enter() } },
@@ -258,6 +262,7 @@ fun HomeScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = colors.accent, contentColor = colors.onAccent),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .then(hidden)
                     .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 16.dp)
                     .guideTarget(targets, GuideTarget.NUMPAD, part = 1)
                     .height(58.dp),
