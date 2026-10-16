@@ -10,6 +10,7 @@ A fast, personal expense tracker for Android. Open the app, type an amount, hit 
 - CSV and XLSX exports include Description, Payment and Notes. The XLSX also has a "By payment" monthly sheet.
 - Five themes: Classic, Sand, Nord, Mocha and Forest. Each has light and dark.
 - Widget payment ticker.
+- A short guide shows the main features on first launch; replay it from Settings → Show guide.
 - About the dev.
 
 ## Install

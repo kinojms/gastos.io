@@ -1,5 +1,6 @@
 package io.gastos.app.ui.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -127,6 +128,7 @@ fun HomeScreen(
     val tourStep by guide.step.collectAsStateWithLifecycle()
     // While the tour runs, only its swipe, Next/Done and Skip do anything.
     val touring = tourStep != null
+    BackHandler(enabled = touring) { guide.skip() }
 
     LaunchedEffect(Unit) { guide.startIfUnseen() }
     LaunchedEffect(touring) {

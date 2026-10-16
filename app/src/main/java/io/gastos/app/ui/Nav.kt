@@ -118,6 +118,10 @@ fun GastosNavHost(container: AppContainer) {
                 onBack = { nav.popBackStack() },
                 onOpenLabels = { nav.navigate(Routes.LABELS) },
                 onOpenMethods = { nav.navigate(Routes.METHODS) },
+                onShowGuide = {
+                    nav.popBackStack(Routes.HOME, inclusive = false)
+                    container.guide.start()
+                },
             )
         }
     }
