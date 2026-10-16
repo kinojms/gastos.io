@@ -85,8 +85,8 @@ class AppPrefs(private val store: DataStore<Preferences>) {
 
     /** Last-used payment method if it is still active, else the first active one. [active] must not be empty. */
     suspend fun resolvePaymentMethod(active: List<PaymentMethodEntity>): PaymentMethodEntity {
-        val last = lastPaymentMethodId.first()
-        return active.firstOrNull { it.id == last } ?: active.first()
+        return LastUsed.method(active, lastPaymentMethodId.first())
+            ?: throw NoSuchElementException("No active payment method")
     }
 
     private companion object {

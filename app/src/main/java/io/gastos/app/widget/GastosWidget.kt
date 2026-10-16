@@ -48,6 +48,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import io.gastos.app.GastosApp
 import io.gastos.app.data.LabelEntity
+import io.gastos.app.data.LastUsed
 import io.gastos.app.data.PaymentMethodEntity
 import io.gastos.app.domain.AmountInput
 import io.gastos.app.domain.Money
@@ -72,8 +73,8 @@ class GastosWidget : GlanceAppWidget() {
             val total by remember(today) { container.expenses.observeDayTotal(today) }.collectAsState(0L)
             val input = currentState<Preferences>()[INPUT] ?: ""
             val label = labels.firstOrNull { it.id == lastLabelId } ?: labels.firstOrNull()
-            // Same rule as AppPrefs.resolvePaymentMethod, which Enter uses: last-used if active, else first.
-            val method = methods.firstOrNull { it.id == lastMethodId } ?: methods.firstOrNull()
+            // Same rule as AppPrefs.resolvePaymentMethod, which Enter uses.
+            val method = LastUsed.method(methods, lastMethodId)
             WidgetContent(input, label, method, total)
         }
     }
@@ -89,17 +90,10 @@ private val Ink = ColorProvider(Color(0xFFE8EDF2))
 private val Muted = ColorProvider(Color(0x99E8EDF2))
 private val Amber = ColorProvider(Color(0xFFF2B33A))
 private val AmberInk = ColorProvider(Color(0xFF1C1300))
-private val White = ColorProvider(Color.White)
-private val WhiteMuted = ColorProvider(Color(0xB3FFFFFF))
 
 private val OuterPadding = 12.dp
 private val TopRowHeight = 40.dp
 private val Gap = 3.dp // half the spacing between keys
-private val WideWidget = 300.dp // at or above this width the ticker names get more room
-
-/** Most characters a ticker name shows before "…", so both pills and the amount fit the top row. */
-@Composable
-private fun tickerNameMax(): Int = if (LocalSize.current.width >= WideWidget) 12 else 8
 
 @Composable
 private fun WidgetContent(input: String, label: LabelEntity?, method: PaymentMethodEntity?, total: Long) {
@@ -141,8 +135,10 @@ private fun WidgetContent(input: String, label: LabelEntity?, method: PaymentMet
 
 @Composable
 private fun TopRow(input: String, label: LabelEntity?, method: PaymentMethodEntity?) {
-    val nameMax = tickerNameMax()
     val amount = "₱" + AmountInput.display(input)
+    val fit = WidgetLogic.fitTopRow(LocalSize.current.width.value, label?.name ?: "—", method?.name ?: "—", amount)
+    val nameMax = fit.nameMax
+    val methodInk = method?.let { ColorProvider(Color(WidgetLogic.onMethodColor(it.colorArgb))) } ?: Ink
     Row(
         modifier = GlanceModifier.fillMaxWidth().height(TopRowHeight).padding(horizontal = Gap),
         verticalAlignment = Alignment.CenterVertically,
@@ -159,8 +155,8 @@ private fun TopRow(input: String, label: LabelEntity?, method: PaymentMethodEnti
         TickerPill(
             name = method?.name?.let { WidgetLogic.shortName(it, nameMax) } ?: "—",
             background = method?.let { ColorProvider(Color(it.colorArgb)) } ?: KeyBg,
-            ink = White,
-            chevron = WhiteMuted,
+            ink = methodInk,
+            chevron = methodInk,
             action = actionRunCallback<NextMethodAction>(),
             description = "Payment ${method?.name ?: "none"}, tap for next",
         )
@@ -169,7 +165,7 @@ private fun TopRow(input: String, label: LabelEntity?, method: PaymentMethodEnti
             modifier = GlanceModifier.defaultWeight().padding(start = 4.dp),
             style = TextStyle(
                 color = Ink,
-                fontSize = WidgetLogic.amountFontSp(amount).sp,
+                fontSize = fit.amountSp.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.End,
             ),

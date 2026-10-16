@@ -4,6 +4,7 @@ import io.gastos.app.data.LabelEntity
 import io.gastos.app.data.PaymentMethodEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WidgetLogicTest {
@@ -51,11 +52,42 @@ class WidgetLogicTest {
     @Test fun shortNameEllipsizesLongNames() =
         assertEquals("Security…", WidgetLogic.shortName("Security Bank", 9))
 
-    @Test fun amountFontShrinksAsTextGrows() {
-        assertEquals(22, WidgetLogic.amountFontSp("₱45.50"))
-        assertEquals(18, WidgetLogic.amountFontSp("₱1,234.56"))
-        assertEquals(15, WidgetLogic.amountFontSp("₱1,234,567.8"))
-        assertEquals(13, WidgetLogic.amountFontSp("₱9,999,999.99"))
+    @Test fun pillInkIsWhiteOnDarkMethodColors() {
+        assertEquals(WidgetLogic.WHITE, WidgetLogic.onMethodColor(0xFFA6192E.toInt())) // BPI
+        assertEquals(WidgetLogic.WHITE, WidgetLogic.onMethodColor(0xFF0033A0.toInt())) // BDO
+    }
+
+    @Test fun pillInkIsDarkOnLightMethodColors() {
+        assertEquals(WidgetLogic.DARK_INK, WidgetLogic.onMethodColor(0xFFFF6A13.toInt())) // Maribank
+        assertEquals(WidgetLogic.DARK_INK, WidgetLogic.onMethodColor(0xFF00B26B.toInt())) // Maya
+        assertEquals(WidgetLogic.DARK_INK, WidgetLogic.onMethodColor(0xFFFFFF00.toInt())) // yellow
+        // Mid tones: GCash #007DFE (white 3.9:1 vs dark 4.7:1) and Cash #77808B (white 3.9:1 vs dark 4.6:1)
+        // go dark under the higher-contrast rule.
+        assertEquals(WidgetLogic.DARK_INK, WidgetLogic.onMethodColor(0xFF007DFE.toInt()))
+        assertEquals(WidgetLogic.DARK_INK, WidgetLogic.onMethodColor(0xFF77808B.toInt()))
+    }
+
+    @Test fun narrowRowWithLongNamesStillFitsTheAmount() {
+        val amount = "₱9,999,999.99"
+        val fit = WidgetLogic.fitTopRow(250f, "Groceries", "Maribank", amount)
+        assertTrue(fit.amountSp >= 12)
+        val used = WidgetLogic.pillWidthDp(WidgetLogic.shortName("Groceries", fit.nameMax)) +
+            WidgetLogic.pillWidthDp(WidgetLogic.shortName("Maribank", fit.nameMax)) +
+            WidgetLogic.textWidthDp(amount, fit.amountSp)
+        assertTrue("used $used", used <= WidgetLogic.topRowInnerDp(250f))
+        assertTrue(WidgetLogic.topRowInnerDp(250f) - used + WidgetLogic.textWidthDp(amount, fit.amountSp) >= 90f)
+    }
+
+    @Test fun shortNamesKeepFullNamesAndLargestFont() {
+        val fit = WidgetLogic.fitTopRow(250f, "Food", "Cash", "₱45.50")
+        assertEquals(22, fit.amountSp)
+        assertEquals("Food", WidgetLogic.shortName("Food", fit.nameMax))
+    }
+
+    @Test fun wideRowKeepsLongNamesWhole() {
+        val fit = WidgetLogic.fitTopRow(350f, "Groceries", "Maribank", "₱9,999,999.99")
+        assertEquals("Groceries", WidgetLogic.shortName("Groceries", fit.nameMax))
+        assertTrue(fit.amountSp >= 15)
     }
 
     @Test fun cyclesInOrderAndWraps() {
