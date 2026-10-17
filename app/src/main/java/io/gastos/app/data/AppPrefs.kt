@@ -51,6 +51,13 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         store.edit { it[LAST_FILE_BACKUP_AT] = millis }
     }
 
+    /** True once the expense list's one-time swipe peek has run. */
+    val swipeHintSeen: Flow<Boolean> = store.data.map { it[SWIPE_HINT_SEEN] ?: false }
+
+    suspend fun setSwipeHintSeen() {
+        store.edit { it[SWIPE_HINT_SEEN] = true }
+    }
+
     /** Epoch millis when the Home backup reminder was last dismissed. */
     val backupReminderDismissedAt: Flow<Long?> = store.data.map { it[BACKUP_REMINDER_DISMISSED_AT] }
 
@@ -123,5 +130,6 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         val LAST_BACKUP_ERROR = stringPreferencesKey("last_backup_error")
         val LAST_FILE_BACKUP_AT = longPreferencesKey("last_file_backup_at")
         val BACKUP_REMINDER_DISMISSED_AT = longPreferencesKey("backup_reminder_dismissed_at")
+        val SWIPE_HINT_SEEN = booleanPreferencesKey("swipe_hint_seen")
     }
 }

@@ -1,6 +1,10 @@
 package io.gastos.app.ui.expenses
 
 import androidx.compose.foundation.BorderStroke
+import io.gastos.app.ui.components.ConfirmDialog
+import io.gastos.app.ui.ConfirmCopy
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,6 +56,10 @@ fun DayList(vm: ExpensesViewModel, date: LocalDate, modifier: Modifier = Modifie
     val labels by vm.labels.collectAsState()
     val voiceLanguage by vm.voiceLanguage.collectAsState()
     var editing by remember { mutableStateOf<ExpenseRow?>(null) }
+    var deleting by remember { mutableStateOf<ExpenseRow?>(null) }
+    /** The one row whose actions are showing. */
+    var openId by remember { mutableStateOf<Long?>(null) }
+    val hintSeen by vm.swipeHintSeen.collectAsState()
 
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.Bottom) {
@@ -61,30 +69,54 @@ fun DayList(vm: ExpensesViewModel, date: LocalDate, modifier: Modifier = Modifie
         if (rows.isEmpty()) {
             Text("No expenses", color = colors.muted, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp).weight(1f))
         } else {
-            LazyColumn(Modifier.weight(1f)) {
+            val listState = rememberLazyListState()
+            // Scrolling closes any open row.
+            LaunchedEffect(listState.isScrollInProgress) { if (listState.isScrollInProgress) openId = null }
+            val peekId = if (hintSeen == false) rows.firstOrNull()?.id else null
+            LazyColumn(Modifier.weight(1f), state = listState) {
                 items(rows, key = { it.id }) { row ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { editing = row }.padding(horizontal = 18.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    SwipeableRow(
+                        open = openId == row.id,
+                        onOpenChange = { open -> openId = if (open) row.id else if (openId == row.id) null else openId },
+                        onEdit = { editing = row },
+                        onDelete = { deleting = row },
+                        onClick = { if (openId != null) openId = null else editing = row },
+                        peek = row.id == peekId,
+                        onPeekStart = { vm.markSwipeHintSeen() },
                     ) {
-                        Canvas(Modifier.size(10.dp)) { drawCircle(Color(row.paymentMethodColor)) }
-                        Column(Modifier.weight(1f)) {
-                            Text(RowText.title(row), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                RowText.subtitle(
-                                    row, Instant.ofEpochMilli(row.timestamp).atZone(ZoneId.systemDefault()).format(timeFormat),
-                                ),
-                                fontSize = 12.sp, color = colors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Canvas(Modifier.size(10.dp)) { drawCircle(Color(row.paymentMethodColor)) }
+                            Column(Modifier.weight(1f)) {
+                                Text(RowText.title(row), fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    RowText.subtitle(
+                                        row, Instant.ofEpochMilli(row.timestamp).atZone(ZoneId.systemDefault()).format(timeFormat),
+                                    ),
+                                    fontSize = 12.sp, color = colors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Text(Money.format(row.amountCentavos), fontWeight = FontWeight.SemiBold)
                         }
-                        Text(Money.format(row.amountCentavos), fontWeight = FontWeight.SemiBold)
                     }
                     HorizontalDivider(color = colors.line)
                 }
             }
         }
         ExportButtons(Modifier.padding(16.dp)) { format -> vm.exportDay(date, format) }
+    }
+
+    deleting?.let { row ->
+        ConfirmDialog(
+            message = ConfirmCopy.deleteExpense(row.amountCentavos, row.labelName),
+            confirmText = "Delete",
+            destructive = true,
+            onConfirm = { deleting = null; vm.delete(row.id) },
+            onDismiss = { deleting = null },
+        )
     }
 
     editing?.let { row ->

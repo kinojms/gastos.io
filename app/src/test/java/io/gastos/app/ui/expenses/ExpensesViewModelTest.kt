@@ -159,4 +159,11 @@ class ExpensesViewModelTest {
         assertEquals(750L, totals.first { it.name == "GCash" }.totalCentavos)
         assertEquals(1000L, totals.first { it.name == "Cash" }.totalCentavos)
     }
+
+    @Test fun swipeHintIsMarkedSeenOnce() = runBlocking {
+        val vm = vm()
+        assertEquals(false, prefs.swipeHintSeen.first())
+        vm.markSwipeHintSeen().join()
+        assertEquals(true, prefs.swipeHintSeen.first())
+    }
 }

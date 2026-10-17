@@ -19,6 +19,7 @@ import io.gastos.app.ui.components.VoiceLanguage
 import io.gastos.app.ui.home.HomeViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -39,7 +40,7 @@ class ExpensesViewModel(
     private val expenses: ExpenseRepository,
     labelRepo: LabelRepository,
     methodRepo: PaymentMethodRepository,
-    prefs: AppPrefs,
+    private val prefs: AppPrefs,
     /** Emits the current date, and again whenever it changes (midnight rollover). */
     dates: Flow<LocalDate> = HomeViewModel.dateTicker(expenses),
     private val zone: () -> ZoneId = { ZoneId.systemDefault() },
@@ -48,6 +49,12 @@ class ExpensesViewModel(
 ) : ViewModel() {
     private val monthState = MutableStateFlow(initialMonth)
     val month: StateFlow<YearMonth> = monthState
+
+    /** Null until loaded, so the list never peeks before it knows whether the hint was already shown. */
+    val swipeHintSeen: StateFlow<Boolean?> = prefs.swipeHintSeen
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun markSwipeHintSeen(): Job = viewModelScope.launch { withContext(NonCancellable) { prefs.setSwipeHintSeen() } }
 
     val today: StateFlow<LocalDate> = dates.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), expenses.today())
