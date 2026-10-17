@@ -369,4 +369,67 @@ class BackupManagerTest {
             ),
         )
     }
+
+    private suspend fun seedTwoExpenses() {
+        val labelId = localLabels().first().id
+        db.expenseDao().insert(ExpenseEntity(amountCentavos = 500, labelId = labelId, timestamp = 9, paymentMethodId = cash()))
+        db.expenseDao().insert(ExpenseEntity(amountCentavos = 700, labelId = labelId, timestamp = 10, paymentMethodId = cash(), description = "Jollibee"))
+    }
+
+    @Test fun exportJson_roundTripsThroughRestoreFromJson() = runBlocking {
+        seedTwoExpenses()
+        val expensesBefore = localExpenses()
+        val json = manager.exportJson()
+        db.replaceAll(emptyList(), emptyList(), emptyList())
+
+        val result = manager.restoreFromJson(json)
+
+        assertTrue(result.exceptionOrNull()?.toString(), result.isSuccess)
+        assertEquals(expensesBefore, localExpenses())
+        assertEquals(2, localExpenses().size)
+        assertTrue(prefs.backupEnabled.first())
+        assertEquals(1, dataChangedCalls)
+        assertEquals(emptyList<String>(), github.calls)
+    }
+
+    @Test fun restoreFromJson_garbage_leavesDataAndReturnsDamaged() = runBlocking {
+        seedTwoExpenses()
+        val before = localExpenses()
+        for (garbage in listOf("PNG binary bytes", "{}", "[1,2]", "")) {
+            val result = manager.restoreFromJson(garbage)
+            assertEquals(
+                "This backup file is damaged or isn't a Gastos.io backup.",
+                result.exceptionOrNull()?.message,
+            )
+        }
+        assertEquals(before, localExpenses())
+        assertFalse(prefs.backupEnabled.first())
+        assertEquals(0, dataChangedCalls)
+    }
+
+    @Test fun restoreFromJson_newerSchema_refused() = runBlocking {
+        seedTwoExpenses()
+        val before = localExpenses()
+        val result = manager.restoreFromJson("""{"schemaVersion":3,"exportedAt":"x","labels":[],"expenses":[]}""")
+        assertEquals("This backup is from a newer version of Gastos.io. Update the app first.", result.exceptionOrNull()?.message)
+        assertEquals(before, localExpenses())
+    }
+
+    @Test fun preview_reportsCountAndExportedAt() = runBlocking {
+        seedTwoExpenses()
+        val preview = manager.preview(manager.exportJson()).getOrThrow()
+        assertEquals(2, preview.expenseCount)
+        assertEquals(clock.instant(), preview.exportedAt)
+        assertTrue(manager.preview("nope").isFailure)
+        assertEquals(2, localExpenses().size)
+    }
+
+    @Test fun backupNow_enabledWithoutRepo_isSilentSuccess() = runBlocking {
+        prefs.setBackupRepo(null)
+        prefs.setBackupEnabled(true)
+        val result = manager.backupNow()
+        assertTrue(result.isSuccess)
+        assertEquals(emptyList<String>(), github.calls)
+        assertNull(prefs.lastBackupError.first())
+    }
 }

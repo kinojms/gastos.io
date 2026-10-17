@@ -45,4 +45,7 @@ data class BackupPaymentMethod(
     val archived: Boolean = false,
 )
 
+/** What a backup file holds, shown before the user confirms replacing local data with it. */
+data class BackupPreview(val expenseCount: Int, val exportedAt: java.time.Instant)
+
 class UnsupportedBackupException(message: String) : Exception(message)

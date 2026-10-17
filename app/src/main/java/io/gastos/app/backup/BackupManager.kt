@@ -35,12 +35,11 @@ class BackupManager(
     /** Uploads all data. Does nothing (no network) while backup is disabled, e.g. on a fresh install. */
     suspend fun backupNow(): Result<Unit> = mutex.withLock {
         if (!prefs.backupEnabled.first()) return@withLock Result.success(Unit)
+        // Enabled by a file restore but no GitHub set up: nothing to do, and nothing to complain about.
+        val saved = savedCredentials() ?: return@withLock Result.success(Unit)
         val result = attempt {
-            val (repo, token) = credentials()
-            val file = db.withTransaction {
-                toBackup(db.labelDao().all(), db.paymentMethodDao().all(), db.expenseDao().all())
-            }
-            val json = BackupSerializer.encode(file)
+            val (repo, token) = saved
+            val json = encodeAll()
             val sha = github.getSha(repo, PATH, token)
             github.upload(repo, PATH, token, json, sha, commitMessage())
         }
@@ -61,30 +60,21 @@ class BackupManager(
         attempt {
             val (repo, token) = credentials()
             val json = github.download(repo, PATH, token) ?: throw BackupException("No backup found in this repo.")
-            val file = try {
-                BackupSerializer.decode(json)
-            } catch (e: SerializationException) {
-                throw BackupException(DAMAGED)
-            }
-            val labels = file.labels.map { LabelEntity(it.id, it.name, it.colorArgb, it.position, it.isOther) }
-            val (methods, expenses) = if (file.paymentMethods.isEmpty()) {
-                // Schema 1 has no payment methods: restore the six defaults (Cash = id 1) and put
-                // every expense on Cash, independent of whatever methods this phone has now.
-                val defaults = DEFAULT_PAYMENT_METHODS.mapIndexed { i, (name, color) ->
-                    PaymentMethodEntity(id = i + 1L, name = name, colorArgb = color, position = i, archived = false)
-                }
-                defaults to file.expenses.map { it.toEntity(defaults.first().id) }
-            } else {
-                val methods = file.paymentMethods.map { PaymentMethodEntity(it.id, it.name, it.colorArgb, it.position, it.archived) }
-                methods to file.expenses.map { it.toEntity(it.paymentMethodId ?: throw BackupException(DAMAGED)) }
-            }
-            validate(labels, methods, expenses)
-            db.replaceAll(labels, methods, expenses)
-            prefs.setBackupEnabled(true)
-            prefs.setLastBackupError(null)
-            onDataChanged()
+            applyRestore(json)
         }
     }
+
+    /** All data as backup JSON (schema 2), for saving to a file. No network, no prefs changes. */
+    suspend fun exportJson(): String = mutex.withLock { encodeAll() }
+
+    /** Decodes and validates [json] without touching the database. */
+    suspend fun preview(json: String): Result<BackupPreview> = attempt {
+        val parsed = parse(json)
+        BackupPreview(parsed.expenses.size, java.time.Instant.parse(parsed.file.exportedAt))
+    }
+
+    /** Same as [restore], but from backup text the owner picked as a file. */
+    suspend fun restoreFromJson(json: String): Result<Unit> = mutex.withLock { attempt { applyRestore(json) } }
 
     /** The owner chose to keep this phone's data: turn backup on and upload right away. */
     suspend fun startFresh(): Result<Unit> {
@@ -92,11 +82,62 @@ class BackupManager(
         return backupNow()
     }
 
-    private suspend fun credentials(): Pair<String, String> {
-        val repo = prefs.backupRepo.first()?.takeIf { it.isNotBlank() }
-            ?: throw BackupException("Set the GitHub repo first.")
-        val token = tokens.load() ?: throw BackupException("Add your GitHub token first.")
+    private suspend fun savedCredentials(): Pair<String, String>? {
+        val repo = prefs.backupRepo.first()?.takeIf { it.isNotBlank() } ?: return null
+        val token = tokens.load() ?: return null
         return repo to token
+    }
+
+    private suspend fun credentials(): Pair<String, String> {
+        prefs.backupRepo.first()?.takeIf { it.isNotBlank() } ?: throw BackupException("Set the GitHub repo first.")
+        return savedCredentials() ?: throw BackupException("Add your GitHub token first.")
+    }
+
+    private suspend fun encodeAll(): String {
+        val file = db.withTransaction {
+            toBackup(db.labelDao().all(), db.paymentMethodDao().all(), db.expenseDao().all())
+        }
+        return BackupSerializer.encode(file)
+    }
+
+    private class Parsed(
+        val file: BackupFile,
+        val labels: List<LabelEntity>,
+        val methods: List<PaymentMethodEntity>,
+        val expenses: List<ExpenseEntity>,
+    )
+
+    /** Decodes and validates; every failure becomes a [BackupException] (or the newer-version one). */
+    private fun parse(json: String): Parsed {
+        val file = try {
+            BackupSerializer.decode(json)
+        } catch (e: SerializationException) {
+            throw BackupException(DAMAGED)
+        } catch (e: IllegalArgumentException) {
+            throw BackupException(DAMAGED)
+        }
+        val labels = file.labels.map { LabelEntity(it.id, it.name, it.colorArgb, it.position, it.isOther) }
+        val (methods, expenses) = if (file.paymentMethods.isEmpty()) {
+            // Schema 1 has no payment methods: restore the six defaults (Cash = id 1) and put
+            // every expense on Cash, independent of whatever methods this phone has now.
+            val defaults = DEFAULT_PAYMENT_METHODS.mapIndexed { i, (name, color) ->
+                PaymentMethodEntity(id = i + 1L, name = name, colorArgb = color, position = i, archived = false)
+            }
+            defaults to file.expenses.map { it.toEntity(defaults.first().id) }
+        } else {
+            val methods = file.paymentMethods.map { PaymentMethodEntity(it.id, it.name, it.colorArgb, it.position, it.archived) }
+            methods to file.expenses.map { it.toEntity(it.paymentMethodId ?: throw BackupException(DAMAGED)) }
+        }
+        validate(labels, methods, expenses)
+        return Parsed(file, labels, methods, expenses)
+    }
+
+    private suspend fun applyRestore(json: String) {
+        val p = parse(json)
+        db.replaceAll(p.labels, p.methods, p.expenses)
+        prefs.setBackupEnabled(true)
+        prefs.setLastBackupError(null)
+        onDataChanged()
     }
 
     private fun BackupExpense.toEntity(methodId: Long) =
@@ -132,9 +173,8 @@ class BackupManager(
         "Backup " + COMMIT_TIME.format(clock.instant().atZone(zone()))
 
     /** Like runCatching, but lets coroutine cancellation propagate. */
-    private inline fun attempt(block: () -> Unit): Result<Unit> = try {
-        block()
-        Result.success(Unit)
+    private inline fun <T> attempt(block: () -> T): Result<T> = try {
+        Result.success(block())
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
