@@ -27,7 +27,7 @@ Friends and family with iPhones want to use Gastos.io. There is no iOS app, and 
 - Accounts, sync between people, a server or hosted database.
 - App Store / TestFlight distribution.
 - Android support for the PWA (Android users keep the APK). It will likely still work in Chrome, but it isn't tested or targeted.
-- Changes to the Android app. *(Adding file backup to Android too is an open question, see the end.)*
+- Android changes beyond file backup and the new icon (see "Android v1.3.0 changes").
 - Push notifications.
 
 ## Anti-goals
@@ -101,7 +101,7 @@ Everything not listed works the same as on Android.
 
 ## Versioning and release
 
-- The PWA has its own version in `web/package.json`, starting at **1.2.0** to match the Android feature level. *(my call)*
+- The PWA has its own version in `web/package.json`, starting at **1.3.0** to match Android. *(my call)*
 - On a new deploy, the app updates itself on the next launch (Workbox `autoUpdate`), and Home shows a small "Updated to vX" toast once. *(my call)*
 - The README gets an "iPhone" section: the link, how to install, and that backup matters.
 
@@ -117,6 +117,23 @@ Everything not listed works the same as on Android.
 - Exact icon generation (the Android vector drawables can be exported to SVG/PNG).
 - Playwright scope beyond the smoke tests listed.
 
-## Open question for the owner
+## Android v1.3.0 changes (decided by owner)
 
-- Should the Android app also get "Save backup file / Restore from file"? It isn't in scope for this design.
+### File backup on Android
+- Same feature as the PWA: Settings → Backup gets **Save backup file** and **Restore from file**, above the GitHub section, with the same copy, confirms, validation and state rules (see "Backup state rules").
+- Save: build the `BackupFile` JSON (schema 2) and write it with `ACTION_CREATE_DOCUMENT` (suggested name `gastos-backup-2026-10-17.json`, MIME `application/json`), so the user picks Drive, Downloads, etc. *(my call; a share-sheet option is not needed)*
+- Restore: `ACTION_OPEN_DOCUMENT` (MIME `application/json`, `text/plain`, `application/octet-stream`), then decode, validate and replace through the existing `BackupManager` restore path.
+- The first-run "Start fresh / Restore" choice also offers Restore from file.
+- Same Home reminder as the PWA (repo or token not set, no file backup in 14 days, at least one expense).
+- Prefs: new `last_file_backup_at` (Long), also used by the PWA.
+- The new-or-changed-repo rule from "Backup state rules" applies to Android too.
+
+### New app icon (owner)
+- Source: `art/icon-source.png` (1254×1254, supplied by the owner). It shows a white wallet with amber bills on a dark (#222 ≈ RGB 34,35,34) rounded tile, with a white margin around the tile. The tile spans about x 84–1169, y 93–1156.
+- **Android:** replace the adaptive icon. Use a solid background color matching the tile (sample it, ≈ `#222322`). The foreground is the wallet artwork, cropped from the tile with its dark backdrop made transparent (or kept, since it matches the background), and scaled to sit inside the 66dp safe zone of the 108dp canvas. Ship foreground PNGs per density (`mipmap-*` or `drawable-*dpi`) and legacy `ic_launcher.png`/`ic_launcher_round.png`. Remove the old vector foreground. Drop the `<monochrome>` layer, since the art doesn't reduce to one color. *(details my call)*
+- **PWA:** generate full-bleed square icons from the tile area (crop to the tile, then fill the rounded corners with the tile color so iOS's own rounding has no white edges). Sizes: 180 (`apple-touch-icon`), 192 and 512 (`purpose: any`), plus a 512 maskable icon with the wallet inside the central 80%. Also a favicon.
+- Generate the icons with a committed script (e.g. `art/make-icons.py` using Pillow) so they can be regenerated.
+
+### Release
+- Android versionName **1.3.0**, versionCode 4, same release key, GitHub release v1.3.0 with `gastos-v1.3.0.apk`.
+- The PWA starts at **1.3.0** too, since both now have file backup.
