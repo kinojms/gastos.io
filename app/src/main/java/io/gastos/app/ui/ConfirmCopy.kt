@@ -21,6 +21,10 @@ object ConfirmCopy {
     fun reorderMethods() = "Save new payment method order?"
     fun deleteMethod(name: String) = "Delete $name? Past expenses keep it."
     fun restore() = "Restore from GitHub? This replaces all data on this phone."
+    fun restoreFile(count: Int, date: String): String {
+        val noun = if (count == 1) "1 expense" else "$count expenses"
+        return "Replace all expenses with this backup ($noun from $date)?"
+    }
     fun startFresh() = "Start fresh? Any existing backup in the repo will be replaced with this phone's data."
     fun saveBackupSettings() = "Save backup settings?"
     fun changeTheme(name: String) = "Change theme to $name?"

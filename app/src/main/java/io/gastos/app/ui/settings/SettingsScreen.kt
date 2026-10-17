@@ -4,7 +4,19 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.runtime.rememberCoroutineScope
+import io.gastos.app.backup.BackupPreview
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -64,7 +76,11 @@ import io.gastos.app.ui.ConfirmCopy
 import io.gastos.app.ui.components.ConfirmDialog
 import io.gastos.app.ui.theme.GastosTheme
 
-private enum class Confirm { SAVE, RESTORE, START_FRESH, THEME, VOICE }
+private enum class Confirm { SAVE, RESTORE, START_FRESH, THEME, VOICE, RESTORE_FILE }
+
+private const val MAX_BACKUP_FILE_BYTES = 20 * 1024 * 1024
+private const val DAMAGED_FILE = "This backup file is damaged or isn't a Gastos.io backup."
+private val FILE_DATE = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
 
 @Composable
 private fun NavRow(title: String, value: String? = null, onClick: () -> Unit) {
@@ -142,6 +158,48 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenLabels: () -
     var pendingVoice by remember { mutableStateOf<VoiceLanguage?>(null) }
     var pickingVoice by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val fileStatus by vm.fileStatus.collectAsState()
+    var pendingFile by remember { mutableStateOf<Pair<String, BackupPreview>?>(null) }
+
+    val saveLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val json = vm.fileBackupJson()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                        ?: throw IOException("No output stream")
+                }
+                vm.onFileSaved()
+            } catch (e: IOException) {
+                vm.showFileError("Couldn't save the file.")
+            }
+        }
+    }
+    val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = try {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        val bytes = input.readNBytes(MAX_BACKUP_FILE_BYTES + 1)
+                        if (bytes.size > MAX_BACKUP_FILE_BYTES) null else String(bytes, Charsets.UTF_8)
+                    }
+                }
+            } catch (e: IOException) {
+                null
+            }
+            if (text == null) {
+                vm.showFileError(DAMAGED_FILE)
+                return@launch
+            }
+            vm.previewFile(text).fold(
+                onSuccess = { pendingFile = text to it; confirm = Confirm.RESTORE_FILE },
+                onFailure = { vm.showFileError(it.message ?: DAMAGED_FILE) },
+            )
+        }
+    }
 
     Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -163,6 +221,20 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenLabels: () -
             Text("Light or dark follows your phone.", color = colors.muted, fontSize = 13.sp)
 
             Text("Backup", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { saveLauncher.launch(vm.backupFileName(LocalDate.now())) },
+                    enabled = !busy,
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.surface2, contentColor = colors.fg),
+                    modifier = Modifier.weight(1f),
+                ) { Text("Save backup file", fontWeight = FontWeight.SemiBold) }
+                OutlinedButton(
+                    onClick = { openLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
+                    enabled = !busy,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Restore from file") }
+            }
+            Text(fileStatus, color = colors.muted, fontSize = 13.sp)
             OutlinedTextField(
                 value = repo,
                 onValueChange = { vm.repoInput.value = it; vm.repoError.value = null },
@@ -216,7 +288,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenLabels: () -
                     enabled = canUse && !busy,
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Start fresh") }
-                Text("Restore your old data or start fresh to turn on backups.", color = colors.muted, fontSize = 13.sp)
+                Text("Restore your old data or start fresh to turn on GitHub backups.", color = colors.muted, fontSize = 13.sp)
             }
 
             Spacer(Modifier.height(8.dp))
@@ -313,6 +385,18 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenLabels: () -
             onConfirm = { confirm = null; vm.startFresh() },
             onDismiss = { confirm = null },
         )
+        Confirm.RESTORE_FILE -> pendingFile?.let { (text, preview) ->
+            ConfirmDialog(
+                message = ConfirmCopy.restoreFile(
+                    preview.expenseCount,
+                    FILE_DATE.format(preview.exportedAt.atZone(ZoneId.systemDefault())),
+                ),
+                confirmText = "Restore",
+                destructive = true,
+                onConfirm = { confirm = null; pendingFile = null; vm.restoreFromFile(text) },
+                onDismiss = { confirm = null; pendingFile = null },
+            )
+        }
         null -> Unit
     }
 }

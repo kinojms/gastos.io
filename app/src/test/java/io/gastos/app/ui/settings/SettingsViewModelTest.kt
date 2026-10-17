@@ -131,6 +131,33 @@ class SettingsViewModelTest {
         assertEquals("", vm.tokenInput.value)
     }
 
+    @Test fun savingNewRepoPausesBackup() = runBlocking {
+        prefs.setBackupRepo("owner/old")
+        prefs.setBackupEnabled(true)
+        val vm = vm()
+        vm.repoInput.value = "owner/new"
+        vm.save()!!.join()
+        assertFalse(prefs.backupEnabled.first())
+    }
+
+    @Test fun resavingSameRepoWithEmptyTokenKeepsBackupOn() = runBlocking {
+        tokens.save("old")
+        prefs.setBackupRepo("owner/repo")
+        prefs.setBackupEnabled(true)
+        val vm = vm()
+        vm.repoInput.value = "owner/repo"
+        vm.save()!!.join()
+        assertTrue(prefs.backupEnabled.first())
+    }
+
+    @Test fun fileSavedRecordsTimeAndStatus() = runBlocking {
+        val vm = vm()
+        assertEquals("No backup file yet", vm.fileStatus.value)
+        vm.onFileSaved().join()
+        assertTrue(prefs.lastFileBackupAt.first() != null)
+        assertEquals("Backup file saved", vm.result.value?.text)
+    }
+
     @Test fun emptyTokenKeepsExistingToken() = runBlocking {
         tokens.save("old")
         val vm = vm()

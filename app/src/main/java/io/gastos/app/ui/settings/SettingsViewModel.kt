@@ -3,6 +3,8 @@ package io.gastos.app.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.gastos.app.backup.BackupManager
+import io.gastos.app.backup.BackupPreview
+import io.gastos.app.backup.BackupRules
 import io.gastos.app.backup.GitHubException
 import io.gastos.app.backup.TokenStore
 import io.gastos.app.data.AppPrefs
@@ -18,10 +20,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -46,6 +51,7 @@ class SettingsViewModel(
     private val backup: BackupManager,
     private val zone: () -> ZoneId = { ZoneId.systemDefault() },
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val clock: Clock = Clock.systemUTC(),
 ) : ViewModel() {
     val repoInput = MutableStateFlow("")
 
@@ -81,6 +87,10 @@ class SettingsViewModel(
         formatStatus(at, error, zone())
     }.stateIn(viewModelScope, SharingStarted.Eagerly, BackupStatus(NOT_BACKED_UP, false))
 
+    val fileStatus: StateFlow<String> = prefs.lastFileBackupAt.map { at ->
+        if (at == null) NO_FILE_BACKUP else "Last file backup: " + TIME_FORMAT.format(Instant.ofEpochMilli(at).atZone(zone()))
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, NO_FILE_BACKUP)
+
     init {
         viewModelScope.launch {
             val saved = prefs.backupRepo.first().orEmpty()
@@ -106,7 +116,10 @@ class SettingsViewModel(
             try {
                 // Token first, so a failed token write never leaves a repo saved without its token.
                 if (token.isNotEmpty()) withContext(io) { tokens.save(token) }
+                val changed = BackupRules.credentialsChanged(prefs.backupRepo.first(), repo, token.isNotEmpty())
                 prefs.setBackupRepo(repo)
+                // New or changed credentials pause auto-backup until Restore or Start fresh.
+                if (changed) prefs.setBackupEnabled(false)
                 if (token.isNotEmpty()) {
                     tokenSaved.value = true
                     tokenInput.value = ""
@@ -134,6 +147,25 @@ class SettingsViewModel(
         }
     }
 
+    fun backupFileName(today: LocalDate): String = "gastos-backup-$today.json"
+
+    suspend fun fileBackupJson(): String = backup.exportJson()
+
+    /** Call after the backup file was written. */
+    fun onFileSaved(): Job = viewModelScope.launch {
+        prefs.setLastFileBackupAt(clock.millis())
+        result.value = ActionResult("Backup file saved", false)
+    }
+
+    suspend fun previewFile(text: String): Result<BackupPreview> = backup.preview(text)
+
+    /** Call after the user confirmed. */
+    fun restoreFromFile(text: String): Job = run("Restored") { backup.restoreFromJson(text) }
+
+    fun showFileError(message: String) {
+        result.value = ActionResult(message, true)
+    }
+
     fun backUpNow(): Job = run("Backed up") { backup.backupNow() }
 
     fun restore(): Job = run("Restored") { backup.restore() }
@@ -159,6 +191,7 @@ class SettingsViewModel(
 
     companion object {
         const val NOT_BACKED_UP = "Not backed up yet"
+        const val NO_FILE_BACKUP = "No backup file yet"
         const val REPO_ERROR = "Use the format owner/repo"
         private val REPO_PATTERN = Regex("^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
         private val TIME_FORMAT = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US)

@@ -44,6 +44,20 @@ class AppPrefs(private val store: DataStore<Preferences>) {
     /** User-facing message of the last failed backup; null after a success. */
     val lastBackupError: Flow<String?> = store.data.map { it[LAST_BACKUP_ERROR] }
 
+    /** Epoch millis of the last "Save backup file". */
+    val lastFileBackupAt: Flow<Long?> = store.data.map { it[LAST_FILE_BACKUP_AT] }
+
+    suspend fun setLastFileBackupAt(millis: Long) {
+        store.edit { it[LAST_FILE_BACKUP_AT] = millis }
+    }
+
+    /** Epoch millis when the Home backup reminder was last dismissed. */
+    val backupReminderDismissedAt: Flow<Long?> = store.data.map { it[BACKUP_REMINDER_DISMISSED_AT] }
+
+    suspend fun setBackupReminderDismissedAt(millis: Long) {
+        store.edit { it[BACKUP_REMINDER_DISMISSED_AT] = millis }
+    }
+
     suspend fun setBackupRepo(repo: String?) {
         store.edit { if (repo == null) it.remove(BACKUP_REPO) else it[BACKUP_REPO] = repo }
     }
@@ -107,5 +121,7 @@ class AppPrefs(private val store: DataStore<Preferences>) {
         val BACKUP_ENABLED = booleanPreferencesKey("backup_enabled")
         val LAST_BACKUP_AT = longPreferencesKey("last_backup_at")
         val LAST_BACKUP_ERROR = stringPreferencesKey("last_backup_error")
+        val LAST_FILE_BACKUP_AT = longPreferencesKey("last_file_backup_at")
+        val BACKUP_REMINDER_DISMISSED_AT = longPreferencesKey("backup_reminder_dismissed_at")
     }
 }
