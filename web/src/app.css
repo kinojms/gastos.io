@@ -29,6 +29,14 @@ html {
   touch-action: manipulation;
 }
 
+/* The page itself never scrolls or rubber-bands (iOS bounces the root even when content fits);
+   lists and Settings scroll inside their own containers. */
+html,
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);

@@ -170,6 +170,7 @@
     display: flex;
     flex-direction: column;
     margin: 0 -16px; /* App pads main by 16px; Home uses the full width */
+    touch-action: none; /* nothing on Home scrolls, so a drag must never pan or bounce the screen */
   }
 
   /* The tint covers the whole screen, status bar and home bar included. */

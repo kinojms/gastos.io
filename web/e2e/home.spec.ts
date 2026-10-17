@@ -61,3 +61,12 @@ test('double-tap zoom is off for the whole page', async ({ page }) => {
   const touchAction = await page.evaluate(() => getComputedStyle(document.documentElement).touchAction)
   expect(touchAction).toBe('manipulation')
 })
+
+test('Home never pans or bounces the page (iOS drags on the keypad moved the whole screen)', async ({ page }) => {
+  const styles = await page.evaluate(() => ({
+    home: getComputedStyle(document.querySelector('.home')!).touchAction,
+    htmlOverflow: getComputedStyle(document.documentElement).overflow,
+    bodyOverflow: getComputedStyle(document.body).overflow,
+  }))
+  expect(styles).toEqual({ home: 'none', htmlOverflow: 'hidden', bodyOverflow: 'hidden' })
+})
