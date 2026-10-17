@@ -7,6 +7,7 @@ export type Route =
   | { name: 'labels' }
   | { name: 'methods' }
   | { name: 'settings' }
+  | { name: 'feedback' }
 
 export function parseHash(hash: string): Route {
   const raw = hash.replace(/^#/, '') || '/'
@@ -21,6 +22,7 @@ export function parseHash(hash: string): Route {
   if (path === '/labels') return { name: 'labels' }
   if (path === '/methods') return { name: 'methods' }
   if (path === '/settings') return { name: 'settings' }
+  if (path === '/feedback') return { name: 'feedback' }
   return { name: 'home' }
 }
 

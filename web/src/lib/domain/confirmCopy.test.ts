@@ -31,6 +31,7 @@ describe('confirmCopy', () => {
     expect(c.saveBackupSettings()).toBe('Save backup settings?')
     expect(c.restoreFile(1, 'Oct 16, 2026')).toBe('Replace all expenses with this backup (1 expense from Oct 16, 2026)?')
     expect(c.restoreFile(12, 'Oct 16, 2026')).toBe('Replace all expenses with this backup (12 expenses from Oct 16, 2026)?')
+    expect(c.sendFeedback()).toBe('Send this feedback?')
     expect(c.changeTheme('Nord')).toBe('Change theme to Nord?')
     expect(c.changeVoiceLanguage('Tagalog')).toBe('Change voice language to Tagalog?')
   })

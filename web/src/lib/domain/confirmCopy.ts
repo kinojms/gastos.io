@@ -24,5 +24,6 @@ export const confirmCopy = {
   startFresh: () => "Start fresh? Any existing backup in the repo will be replaced with this phone's data.",
   saveBackupSettings: () => 'Save backup settings?',
   changeTheme: (name: string) => `Change theme to ${name}?`,
+  sendFeedback: () => 'Send this feedback?',
   changeVoiceLanguage: (name: string) => `Change voice language to ${name}?`,
 }

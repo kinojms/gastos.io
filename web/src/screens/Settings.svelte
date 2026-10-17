@@ -8,6 +8,7 @@
   import { confirmCopy } from '../lib/domain/confirmCopy'
   import { dayOf, formatFullDate, today } from '../lib/domain/dates'
   import { MIME } from '../lib/export/exportFiles'
+  import { feedbackEnabled } from '../lib/feedback/config'
   import { guide } from '../lib/guide/guide.svelte'
   import { navigate } from '../lib/router.svelte'
   import { shareOrDownload } from '../lib/share'
@@ -228,6 +229,9 @@
   <NavRow title="Voice language" value={voice.name} onclick={() => (pickingVoice = true)} />
   <NavRow title="Labels" onclick={() => navigate('/labels')} />
   <NavRow title="Payment methods" onclick={() => navigate('/methods')} />
+  {#if feedbackEnabled}
+    <NavRow title="Submit feedback" onclick={() => navigate('/feedback')} />
+  {/if}
   <NavRow
     title="Show guide"
     onclick={() => {

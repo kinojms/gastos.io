@@ -3,6 +3,7 @@
   import Toast from './lib/ui/Toast.svelte'
   import DayView from './screens/DayView.svelte'
   import Expenses from './screens/Expenses.svelte'
+  import Feedback from './screens/Feedback.svelte'
   import Home from './screens/Home.svelte'
   import Labels from './screens/Labels.svelte'
   import Methods from './screens/Methods.svelte'
@@ -24,6 +25,8 @@
     <Methods />
   {:else if route.name === 'settings'}
     <Settings />
+  {:else if route.name === 'feedback'}
+    <Feedback />
   {/if}
 </div>
 <Toast />
