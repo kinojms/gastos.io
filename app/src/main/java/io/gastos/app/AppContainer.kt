@@ -19,6 +19,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.time.Clock
@@ -43,6 +46,10 @@ class AppContainer(context: Context) {
     val tokens: TokenStore = TokenStore(context)
     val backupManager: BackupManager =
         BackupManager(db, prefs, tokens, GitHubClient(OkHttpClient()), Clock.systemUTC()) { onDataChanged() }
+
+    /** True while a GitHub repo and token are both saved. Re-checked whenever the repo changes. */
+    val hasGitHubBackup: Flow<Boolean> =
+        prefs.backupRepo.map { !it.isNullOrBlank() && tokens.load() != null }.flowOn(Dispatchers.IO)
 
     /** Called after every write. Refreshes the widget and schedules a debounced backup. */
     fun onDataChanged() {

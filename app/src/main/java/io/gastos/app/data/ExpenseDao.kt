@@ -24,6 +24,9 @@ interface ExpenseDao {
         notes: String?,
     )
 
+    @Query("SELECT MIN(timestamp) FROM expenses")
+    fun observeOldestTimestamp(): Flow<Long?>
+
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun delete(id: Long)
 

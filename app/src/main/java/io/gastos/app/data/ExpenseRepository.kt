@@ -54,6 +54,9 @@ class ExpenseRepository(
         onDataChanged()
     }
 
+    /** Timestamp of the oldest expense, or null when there are none. */
+    fun observeOldestTimestamp(): Flow<Long?> = dao.observeOldestTimestamp()
+
     fun observeDay(date: LocalDate): Flow<List<ExpenseRow>> =
         dayRange(date).let { (s, e) -> dao.observeRows(s, e) }
 

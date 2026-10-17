@@ -4,6 +4,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -117,6 +121,7 @@ fun HomeScreen(
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val voiceLanguage by vm.voiceLanguage.collectAsStateWithLifecycle()
+    val showReminder by vm.showBackupReminder.collectAsStateWithLifecycle()
     val colors = GastosTheme.colors
     val snackbar = remember { SnackbarHostState() }
     val focus = LocalFocusManager.current
@@ -229,6 +234,31 @@ fun HomeScreen(
                         DropdownMenuItem(text = { Text("Labels") }, onClick = { menu = false; onOpenLabels() })
                         DropdownMenuItem(text = { Text("Payment methods") }, onClick = { menu = false; onOpenMethods() })
                         DropdownMenuItem(text = { Text("Settings") }, onClick = { menu = false; onOpenSettings() })
+                    }
+                }
+            }
+
+            if (showReminder && !touring) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.surface2)
+                        .clickable { onOpenSettings() }
+                        .padding(start = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Back up your expenses: Settings → Save backup file",
+                        fontSize = 12.sp,
+                        color = colors.muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = vm::dismissBackupReminder, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Filled.Close, contentDescription = "Dismiss", modifier = Modifier.size(16.dp))
                     }
                 }
             }

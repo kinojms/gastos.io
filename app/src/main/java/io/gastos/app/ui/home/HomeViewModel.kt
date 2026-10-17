@@ -2,6 +2,7 @@ package io.gastos.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.gastos.app.backup.BackupReminder
 import io.gastos.app.data.AppPrefs
 import io.gastos.app.data.ExpenseRepository
 import io.gastos.app.data.LabelEntity
@@ -29,6 +30,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -63,6 +65,9 @@ class HomeViewModel(
     private val prefs: AppPrefs,
     /** Emits the current date, and again whenever it changes (midnight rollover). */
     dates: Flow<LocalDate> = dateTicker(expenses),
+    /** Whether a GitHub repo and token are saved; the backup reminder hides while they are. */
+    hasGitHub: Flow<Boolean> = flowOf(false),
+    private val nowMillis: () -> Long = System::currentTimeMillis,
     /** True while the guided tour runs; typing and Enter are ignored then so the tour never saves. */
     private val tourActive: () -> Boolean = { false },
     /** Persists the shared last-used payment method; the app wires this to also refresh the widget. */
@@ -89,6 +94,17 @@ class HomeViewModel(
 
     val voiceLanguage: StateFlow<VoiceLanguage> =
         prefs.voiceLanguage.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceLanguage.ENGLISH)
+
+    /** Re-evaluated whenever the date ticker emits, so the reminder can appear without a restart. */
+    val showBackupReminder: StateFlow<Boolean> = combine(
+        hasGitHub, prefs.lastFileBackupAt, expenses.observeOldestTimestamp(), prefs.backupReminderDismissedAt, dates,
+    ) { gh, lastFile, oldest, dismissed, _ ->
+        BackupReminder.shouldShow(nowMillis(), gh, lastFile, oldest, dismissed)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun dismissBackupReminder() {
+        viewModelScope.launch { prefs.setBackupReminderDismissedAt(nowMillis()) }
+    }
 
     private val today = dates.distinctUntilChanged()
     private val total = today.flatMapLatest { expenses.observeDayTotal(it) }

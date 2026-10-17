@@ -46,6 +46,7 @@ fun GastosNavHost(container: AppContainer) {
                     tourActive = { container.guide.step.value != null },
                     setLastMethod = container::setLastPaymentMethod,
                     setLastLabel = container::setLastLabel,
+                    hasGitHub = container.hasGitHubBackup,
                 ) as T
         }
     }
