@@ -1,0 +1,6 @@
+name = "gastos-feedback"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# Secrets (never committed): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+# Set them with `npx wrangler secret put <NAME>` or in the Cloudflare dashboard.
