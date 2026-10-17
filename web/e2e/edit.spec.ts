@@ -30,14 +30,14 @@ test('an invalid amount disables Save', async ({ page }) => {
 })
 
 test('deleting asks to confirm, then empties the list', async ({ page }) => {
-  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
   await expect(page.getByRole('alertdialog')).toContainText('Delete ₱10.00 · Food?')
   await page.getByRole('button', { name: 'Delete', exact: true }).last().click()
   await expect(page.getByText('No expenses')).toBeVisible()
 })
 
 test('cancelling the confirm keeps the sheet open', async ({ page }) => {
-  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.getByRole('alertdialog')).toHaveCount(0)
   await expect(page.getByText('Edit expense')).toBeVisible()

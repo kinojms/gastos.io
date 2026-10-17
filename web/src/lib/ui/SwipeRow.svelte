@@ -143,6 +143,7 @@
 <svelte:window onpointerdown={outside} />
 
 <div class="swipe-row" bind:this={root} data-open={offset !== 0}>
+  <!-- The actions stay in the accessibility tree while hidden, so VoiceOver users reach them without swiping. -->
   <div class="actions" style:width="{2 * ACTION_WIDTH}px">
     <button class="action edit" aria-label="Edit" tabindex={offset === 0 ? -1 : 0} onclick={() => act(onedit)}>
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -168,9 +169,6 @@
     onclickcapture={clickCapture}
   >
     {@render children()}
-    <!-- VoiceOver: the same actions without swiping. -->
-    <button class="sr-only" onclick={onedit}>Edit</button>
-    <button class="sr-only" onclick={ondelete}>Delete</button>
   </div>
 </div>
 
