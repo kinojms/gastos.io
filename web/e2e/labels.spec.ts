@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { openHome } from './helpers'
 
 async function add(page: Page, digits: string) {
   for (const ch of digits) await page.getByRole('button', { name: ch, exact: true }).click()
@@ -7,8 +8,7 @@ async function add(page: Page, digits: string) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('./')
-  await expect(page.locator('.name')).toHaveText('CASH')
+  await openHome(page)
 })
 
 async function openLabels(page: Page) {

@@ -9,14 +9,36 @@
   import SwipeArea from '../lib/ui/SwipeArea.svelte'
   import VoiceButton from '../lib/ui/VoiceButton.svelte'
   import { showToast } from '../lib/ui/toastState.svelte'
+  import CoachOverlay from '../lib/guide/CoachOverlay.svelte'
+  import { guide } from '../lib/guide/guide.svelte'
+  import type { Axis } from '../lib/domain/swipe'
   import { createHomeState } from './homeState.svelte'
 
-  const home = createHomeState()
+  const home = createHomeState({ tourActive: () => guide.step !== null })
+  const step = $derived(guide.step)
+  const touring = $derived(step !== null)
+  /** While the tour runs only its swipe, Next/Done and Skip do anything; screen readers skip the dimmed controls. */
+  const swipeStep = $derived(step?.swipeAxis != null)
 
   let menuOpen = $state(false)
   let descriptionInput: HTMLInputElement | undefined = $state()
 
-  onMount(() => home.start())
+  onMount(() => {
+    void guide.startIfUnseen()
+    return home.start()
+  })
+
+  $effect(() => {
+    if (touring) descriptionInput?.blur()
+  })
+
+  /** Every swipe lands here. During the tour only the step's own axis counts, and it completes the step. */
+  function onswipe(axis: Axis, delta: number) {
+    const current = guide.step
+    if (current !== null && current.swipeAxis !== axis) return
+    void home.swipe(axis, delta)
+    if (current !== null) setTimeout(() => guide.onSwipe(axis), 400) // let them see the change; ignored if the tour moved on
+  }
 
   async function enter() {
     descriptionInput?.blur()
@@ -41,7 +63,7 @@
 
 <div class="home" style:--method={tint}>
   <div class="tint" aria-hidden="true"></div>
-  <header>
+  <header inert={touring}>
     <div class="when">
       <div class="date">{formatHeaderDate(home.today)}</div>
       <div class="total">Today {formatMoney(home.todayTotal)}</div>
@@ -73,10 +95,11 @@
     label={home.label}
     methods={home.methods}
     amount={home.amount}
-    onswipe={(axis, delta) => void home.swipe(axis, delta)}
+    {onswipe}
+    inert={touring && !swipeStep}
   />
 
-  <div class="field" data-guide="description">
+  <div class="field" data-guide="description" inert={touring}>
     <input
       bind:this={descriptionInput}
       type="text"
@@ -91,10 +114,13 @@
     <div class="mic-slot"><VoiceButton onresult={(text) => home.setDescriptionFromVoice(text)} /></div>
   </div>
 
-  <Numpad onKey={(k) => home.key(k)} />
-  <div class="enter-wrap" data-guide="enter">
+  <div inert={touring}><Numpad onKey={(k) => home.key(k)} /></div>
+  <div class="enter-wrap" data-guide="enter" inert={touring}>
     <button class="enter" onclick={enter}>Enter</button>
   </div>
+{#if step}
+  <CoachOverlay {step} onnext={() => guide.next()} onskip={() => guide.skip()} />
+{/if}
 </div>
 
 <style>

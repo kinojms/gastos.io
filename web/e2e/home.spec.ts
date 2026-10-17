@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { openHome } from './helpers'
 
 async function type(page: Page, text: string) {
   for (const ch of text) {
@@ -19,8 +20,7 @@ async function drag(page: Page, dx: number, dy: number) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('./')
-  await expect(page.locator('.name')).toHaveText('CASH')
+  await openHome(page)
 })
 
 test('typing an amount and pressing Enter saves it for today', async ({ page }) => {

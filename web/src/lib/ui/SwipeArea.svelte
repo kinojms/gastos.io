@@ -9,6 +9,7 @@
     methods,
     amount,
     onswipe,
+    inert = false,
   }: {
     method: PaymentMethod | null
     label: Label | null
@@ -16,12 +17,16 @@
     amount: string
     /** Every swipe, from touch or from the VoiceOver buttons. */
     onswipe: (axis: Axis, delta: number) => void
+    /** True during the tour on steps that don't use the swipe area. */
+    inert?: boolean
   } = $props()
 
   let start: { x: number; y: number; id: number } | null = null
 
   function down(e: PointerEvent) {
     start = { x: e.clientX, y: e.clientY, id: e.pointerId }
+    // Keep receiving the gesture even if the finger leaves the area (or crosses the tour overlay).
+    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
   }
 
   function up(e: PointerEvent) {
@@ -37,6 +42,7 @@
   data-guide="swipe"
   role="group"
   aria-label="Payment method, label and amount"
+  {inert}
   onpointerdown={down}
   onpointerup={up}
   onpointercancel={() => (start = null)}
