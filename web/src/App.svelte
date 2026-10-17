@@ -5,6 +5,8 @@
   import DayView from './screens/DayView.svelte'
   import Expenses from './screens/Expenses.svelte'
   import Home from './screens/Home.svelte'
+  import Labels from './screens/Labels.svelte'
+  import Methods from './screens/Methods.svelte'
 
   const route = $derived(router.route)
 </script>
@@ -16,6 +18,10 @@
     <Expenses />
   {:else if route.name === 'day'}
     {#key route.date}<DayView day={route.date} />{/key}
+  {:else if route.name === 'labels'}
+    <Labels />
+  {:else if route.name === 'methods'}
+    <Methods />
   {:else}
     <TopBar title={route.name} />
     <main><p>{route.name}</p></main>
