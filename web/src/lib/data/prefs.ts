@@ -18,6 +18,7 @@ export interface Prefs {
   install_banner_dismissed_at: number
   last_seen_version: string
   last_change_at: number
+  swipe_hint_seen: boolean
 }
 
 const snapshot = writable<Partial<Prefs>>({})
