@@ -27,6 +27,13 @@ android {
         targetSdk = 35
         versionCode = 4
         versionName = "1.3.0"
+
+        // Feedback relay URL from the one shared file; blank hides "Submit feedback".
+        val feedbackUrl = rootProject.file("config/feedback-url.txt").takeIf { it.exists() }?.readText()?.trim().orEmpty()
+        require(feedbackUrl.isEmpty() || feedbackUrl.startsWith("https://")) {
+            "config/feedback-url.txt must be blank or an https:// URL"
+        }
+        buildConfigField("String", "FEEDBACK_URL", "\"$feedbackUrl\"")
     }
 
     signingConfigs {

@@ -1,11 +1,20 @@
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { defineConfig } from 'vitest/config'
 import { VitePWA } from 'vite-plugin-pwa'
+import { existsSync, readFileSync } from 'node:fs'
 import pkg from './package.json' with { type: 'json' }
+
+/** Feedback relay URL from the one shared file (env FEEDBACK_URL overrides it, for e2e); blank hides the feature. */
+function feedbackUrl(): string {
+  const file = new URL('../config/feedback-url.txt', import.meta.url)
+  const url = (process.env.FEEDBACK_URL ?? (existsSync(file) ? readFileSync(file, 'utf8') : '')).trim()
+  if (url && !url.startsWith('https://')) throw new Error('config/feedback-url.txt must be blank or an https:// URL')
+  return url
+}
 
 export default defineConfig({
   base: '/gastos.io/',
-  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
+  define: { __APP_VERSION__: JSON.stringify(pkg.version), __FEEDBACK_URL__: JSON.stringify(feedbackUrl()) },
   plugins: [
     svelte(),
     VitePWA({
