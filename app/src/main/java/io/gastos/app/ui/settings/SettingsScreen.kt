@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.runtime.rememberCoroutineScope
 import io.gastos.app.backup.BackupPreview
+import io.gastos.app.backup.BoundedRead
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -183,8 +184,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenLabels: () -
             val text = try {
                 withContext(Dispatchers.IO) {
                     context.contentResolver.openInputStream(uri)?.use { input ->
-                        val bytes = input.readNBytes(MAX_BACKUP_FILE_BYTES + 1)
-                        if (bytes.size > MAX_BACKUP_FILE_BYTES) null else String(bytes, Charsets.UTF_8)
+                        BoundedRead.readAll(input, MAX_BACKUP_FILE_BYTES)?.let { String(it, Charsets.UTF_8) }
                     }
                 }
             } catch (e: IOException) {

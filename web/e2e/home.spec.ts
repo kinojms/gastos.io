@@ -56,3 +56,8 @@ test('the selection survives a reload', async ({ page }) => {
   await page.reload()
   await expect(page.locator('.name')).toHaveText('GCASH')
 })
+
+test('double-tap zoom is off for the whole page', async ({ page }) => {
+  const touchAction = await page.evaluate(() => getComputedStyle(document.documentElement).touchAction)
+  expect(touchAction).toBe('manipulation')
+})

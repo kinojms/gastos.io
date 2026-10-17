@@ -24,6 +24,11 @@ body,
   margin: 0;
 }
 
+/* No double-tap zoom anywhere: a fast second tap on Enter or the date must not zoom the page. */
+html {
+  touch-action: manipulation;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
