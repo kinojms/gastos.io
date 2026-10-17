@@ -1,6 +1,6 @@
 # Gastos.io
 
-A fast, personal expense tracker for Android. Open the app, type an amount, hit enter.
+A fast, personal expense tracker for Android and iPhone. Open the app, type an amount, hit enter.
 
 ## Features
 
@@ -22,7 +22,25 @@ A fast, personal expense tracker for Android. Open the app, type an amount, hit 
 3. Open the file. If asked, allow "Install unknown apps" for that browser or file manager (Samsung: Settings > Apps > the browser/My Files > Install unknown apps).
 4. Install. Later versions install over the old one.
 
-## Widget
+## iPhone (web app)
+
+iPhone users can use Gastos.io as a web app. It has everything the Android app has except the widget.
+
+1. On the iPhone, open https://kinojms.github.io/gastos.io/ in **Safari**.
+2. Tap the Share button, then **Add to Home Screen**.
+3. Open Gastos.io from its Home Screen icon. It runs full-screen and works offline.
+
+Things to know:
+
+- **Add expenses only in the installed app.** Safari and the Home Screen app keep separate data, so anything added in Safari won't show up in the installed app.
+- **Back up your data.** Your expenses live only on your phone. If you delete the Home Screen icon or clear Safari's data, they are gone. Use Settings → Save backup file now and then (save it to Files or iCloud Drive), or set up GitHub backup as described below. iPhones can't back up in the background, so GitHub backup runs while the app is open.
+- **Moving between Android and iPhone:** both use the same backup format. Restore the same GitHub repo on the new phone, or save a backup file on one and use Restore from file on the other.
+- Voice input may not work on iPhone. Typing always does.
+- The GitHub token is stored on the phone without encryption (a browser limit). Use a fine-grained token limited to the backup repo.
+
+To build it yourself: `cd web && npm ci && npm test && npm run build`. Pushing changes under `web/` to `main` redeploys it through GitHub Actions.
+
+## Widget (Android only)
 
 Long-press the home screen, tap Widgets, find Gastos.io, and add it.
 
