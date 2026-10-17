@@ -15,3 +15,4 @@ web/dev-dist
 feedback-relay/node_modules
 feedback-relay/.wrangler
 feedback-relay/dist
+feedback-relay/.dev.vars

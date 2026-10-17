@@ -116,12 +116,6 @@ fun SwipeableRow(
                 .fillMaxWidth()
                 .offset { IntOffset(with(density) { offset.value.dp.roundToPx() }, 0) }
                 .background(colors.bg)
-                .semantics {
-                    customActions = listOf(
-                        CustomAccessibilityAction("Edit") { act(onEdit); true },
-                        CustomAccessibilityAction("Delete") { act(onDelete); true },
-                    )
-                }
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -162,15 +156,42 @@ fun SwipeableRow(
                     }
                 },
         ) {
-            RowClick(open = open, onClose = { onOpenChange(false) }, onClick = onClick, content = content)
+            RowClick(
+                open = open,
+                onClose = { onOpenChange(false) },
+                onClick = onClick,
+                onEdit = { act(onEdit) },
+                onDelete = { act(onDelete) },
+                content = content,
+            )
         }
     }
 }
 
-/** Taps go to [onClick] when closed; on an open row they only close it. */
+/**
+ * Taps go to [onClick] when closed; on an open row they only close it. This is the node TalkBack focuses,
+ * so Edit and Delete live here as custom actions.
+ */
 @Composable
-private fun RowClick(open: Boolean, onClose: () -> Unit, onClick: () -> Unit, content: @Composable () -> Unit) {
-    Box(Modifier.fillMaxWidth().clickable { if (open) onClose() else onClick() }) { content() }
+private fun RowClick(
+    open: Boolean,
+    onClose: () -> Unit,
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clickable { if (open) onClose() else onClick() }
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction("Edit") { onEdit(); true },
+                    CustomAccessibilityAction("Delete") { onDelete(); true },
+                )
+            },
+    ) { content() }
 }
 
 @Composable
