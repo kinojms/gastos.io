@@ -9,9 +9,16 @@
   import SwipeArea from '../lib/ui/SwipeArea.svelte'
   import VoiceButton from '../lib/ui/VoiceButton.svelte'
   import { showToast } from '../lib/ui/toastState.svelte'
+  import { shouldShowReminder } from '../lib/backup/rules'
+  import { oldestTimestamp } from '../lib/data/expenses'
+  import { prefsStore, setPref } from '../lib/data/prefs'
   import CoachOverlay from '../lib/guide/CoachOverlay.svelte'
   import { guide } from '../lib/guide/guide.svelte'
   import type { Axis } from '../lib/domain/swipe'
+  import { installState, shouldShowInstallBanner } from '../lib/install'
+  import { live } from '../lib/live.svelte'
+  import BackupReminder from '../lib/ui/BackupReminder.svelte'
+  import InstallBanner from '../lib/ui/InstallBanner.svelte'
   import { createHomeState } from './homeState.svelte'
 
   const home = createHomeState({ tourActive: () => guide.step !== null })
@@ -20,12 +27,36 @@
   /** While the tour runs only its swipe, Next/Done and Skip do anything; screen readers skip the dimmed controls. */
   const swipeStep = $derived(step?.swipeAxis != null)
 
+  const install = installState()
+  let nowMs = $state(Date.now())
+  const prefs = $derived($prefsStore)
+  const oldest = live(() => oldestTimestamp(), null as number | null)
+
+  /** At most one banner at a time: the install note first, then the backup reminder. Neither shows during the tour. */
+  const showInstall = $derived(!touring && install !== 'installed' && shouldShowInstallBanner(install, prefs.install_banner_dismissed_at, nowMs))
+  const showReminder = $derived(
+    !touring &&
+      !showInstall &&
+      shouldShowReminder({
+        now: nowMs,
+        hasGitHub: Boolean(prefs.backup_repo?.trim() && prefs.backup_token),
+        lastFileBackupAt: prefs.last_file_backup_at ?? null,
+        oldestExpenseAt: oldest.value,
+        dismissedAt: prefs.backup_reminder_dismissed_at ?? null,
+      }),
+  )
+
   let menuOpen = $state(false)
   let descriptionInput: HTMLInputElement | undefined = $state()
 
   onMount(() => {
     void guide.startIfUnseen()
-    return home.start()
+    const stop = home.start()
+    const clock = setInterval(() => (nowMs = Date.now()), 60_000)
+    return () => {
+      stop()
+      clearInterval(clock)
+    }
   })
 
   $effect(() => {
@@ -61,7 +92,7 @@
 
 <svelte:window onpointerdown={outside} />
 
-<div class="home" style:--method={tint}>
+<div class="home no-select" style:--method={tint}>
   <div class="tint" aria-hidden="true"></div>
   <header inert={touring}>
     <div class="when">
@@ -89,6 +120,15 @@
       {/if}
     </div>
   </header>
+
+  {#if showInstall && install !== 'installed'}
+    <InstallBanner state={install} ondismiss={() => void setPref('install_banner_dismissed_at', Date.now())} />
+  {:else if showReminder}
+    <BackupReminder
+      onopen={() => navigate('/settings')}
+      ondismiss={() => void setPref('backup_reminder_dismissed_at', Date.now())}
+    />
+  {/if}
 
   <SwipeArea
     method={home.method}
@@ -228,6 +268,8 @@
   }
 
   input {
+    user-select: text; /* typing must keep working inside the no-select screen */
+    -webkit-user-select: text;
     width: 100%;
     height: 52px;
     padding: 0 56px 0 14px;

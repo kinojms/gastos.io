@@ -4,9 +4,10 @@ import './app.css'
 import App from './App.svelte'
 import { startAutoBackup } from './lib/backup/auto'
 import { openGastosDb } from './lib/data/db'
-import { loadPrefs } from './lib/data/prefs'
+import { loadPrefs, setPref } from './lib/data/prefs'
 import { applyTheme } from './lib/theme/applyTheme'
 import type { ThemeId } from './lib/theme/palettes'
+import { showToast } from './lib/ui/toastState.svelte'
 
 async function start() {
   applyTheme('CLASSIC')
@@ -17,6 +18,11 @@ async function start() {
   startAutoBackup()
   mount(App, { target: document.getElementById('app')! })
   registerSW({ immediate: true })
+  // After an update, say so once. A first-ever launch has nothing to compare against.
+  if (prefs.last_seen_version !== __APP_VERSION__) {
+    if (prefs.last_seen_version !== undefined) showToast(`Updated to v${__APP_VERSION__}`)
+    await setPref('last_seen_version', __APP_VERSION__)
+  }
 }
 
 void start()
