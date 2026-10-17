@@ -64,6 +64,7 @@ test('a vertical drag never opens a row, and opening one closes the other', asyn
   await expect(rows(page).first()).toHaveAttribute('data-open', 'false', { timeout: 3000 })
   await drag(page, rows(page).first(), 4, 60)
   await expect(rows(page).first()).toHaveAttribute('data-open', 'false')
+  await expect(page.getByText('Edit expense')).toHaveCount(0) // a drag is never a tap
 
   await drag(page, rows(page).first(), -120, 2)
   await expect(rows(page).first()).toHaveAttribute('data-open', 'true')
@@ -80,4 +81,13 @@ test('tapping an open row closes it instead of opening Edit', async ({ page }) =
   await first.locator('.title').click()
   await expect(first).toHaveAttribute('data-open', 'false')
   await expect(page.getByText('Edit expense')).toHaveCount(0)
+})
+
+test('the actions name the expense they belong to, and come after it', async ({ page }) => {
+  await page.getByRole('button', { name: 'Expenses list' }).click()
+  const first = rows(page).first()
+  await expect(first.locator('.action.edit')).toHaveAttribute('aria-label', 'Edit ₱30.00 · Food')
+  await expect(first.locator('.action.delete')).toHaveAttribute('aria-label', 'Delete ₱30.00 · Food')
+  const order = await first.evaluate((el) => [...el.children].map((c) => c.className.split(' ')[0]))
+  expect(order).toEqual(['content', 'actions'])
 })

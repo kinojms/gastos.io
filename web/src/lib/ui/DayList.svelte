@@ -48,6 +48,7 @@
       {#each rows.value as row (row.id)}
         <SwipeRow
           id={row.id}
+          label="{formatMoney(row.amountCentavos)} · {row.labelName}"
           onedit={() => onedit(row)}
           ondelete={() => (deleting = row)}
           peek={row.id === peekId}

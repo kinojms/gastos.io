@@ -9,9 +9,12 @@
     ondelete,
     peek = false,
     onpeekstart,
+    label,
     children,
   }: {
     id: number
+    /** Names the expense in the actions' accessible names, e.g. "₱30.00 · Food". */
+    label: string
     onedit: () => void
     ondelete: () => void
     /** Slide open once on mount to show the actions exist. */
@@ -86,6 +89,7 @@
     const dx = e.clientX - g.x
     if (g.axis === null) {
       g.axis = lockAxis(dx, e.clientY - g.y)
+      if (g.axis === 'v') swallowClick = true // a scroll or drag is never a tap
       if (g.axis === 'h') {
         dragging = true
         swallowClick = true
@@ -101,10 +105,19 @@
     offset = dragOffset(g.start, dx)
   }
 
+  /** Touch drags fire no click, so forget the swallow once this gesture's click had its chance. */
+  function forgetSwallowSoon() {
+    setTimeout(() => {
+      swallowClick = false
+      tapClosesRow = false
+    }, 0)
+  }
+
   function up(e: PointerEvent) {
     const g = gesture
     if (!g || g.pointerId !== e.pointerId) return
     gesture = null
+    forgetSwallowSoon()
     if (g.axis === 'h') {
       dragging = false
       setOpen(settle(offset, g.vx) === OPEN_OFFSET)
@@ -112,6 +125,7 @@
   }
 
   function cancel() {
+    forgetSwallowSoon()
     if (gesture?.axis === 'h') {
       dragging = false
       setOpen(offset < OPEN_OFFSET / 2)
@@ -143,20 +157,6 @@
 <svelte:window onpointerdown={outside} />
 
 <div class="swipe-row" bind:this={root} data-open={offset !== 0}>
-  <!-- The actions stay in the accessibility tree while hidden, so VoiceOver users reach them without swiping. -->
-  <div class="actions" style:width="{2 * ACTION_WIDTH}px">
-    <button class="action edit" aria-label="Edit" tabindex={offset === 0 ? -1 : 0} onclick={() => act(onedit)}>
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-      </svg>
-    </button>
-    <button class="action delete" aria-label="Delete" tabindex={offset === 0 ? -1 : 0} onclick={() => act(ondelete)}>
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
-      </svg>
-    </button>
-  </div>
   <div
     class="content"
     class:animate={!dragging && !reducedMotion}
@@ -169,6 +169,21 @@
     onclickcapture={clickCapture}
   >
     {@render children()}
+  </div>
+  <!-- After the row in the DOM (CSS puts them underneath), so VoiceOver reads the expense first; they stay
+       reachable while hidden, so VoiceOver users don't need to swipe. -->
+  <div class="actions" style:width="{2 * ACTION_WIDTH}px">
+    <button class="action edit" aria-label="Edit {label}" tabindex={offset === 0 ? -1 : 0} onclick={() => act(onedit)}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </svg>
+    </button>
+    <button class="action delete" aria-label="Delete {label}" tabindex={offset === 0 ? -1 : 0} onclick={() => act(ondelete)}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+      </svg>
+    </button>
   </div>
 </div>
 

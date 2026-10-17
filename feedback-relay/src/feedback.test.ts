@@ -115,6 +115,17 @@ describe('worker', () => {
     expect(tg).not.toHaveBeenCalled()
   })
 
+  it('refuses a body whose declared size is too big before reading it', async () => {
+    const tg = vi.fn()
+    vi.stubGlobal('fetch', tg)
+    const req = post(JSON.stringify(valid))
+    req.headers.set('Content-Length', '9000')
+    const read = vi.spyOn(req, 'text')
+    expect((await worker.fetch(req, env)).status).toBe(413)
+    expect(read).not.toHaveBeenCalled()
+    expect(tg).not.toHaveBeenCalled()
+  })
+
   it('answers preflight and refuses other methods', async () => {
     const pre = await worker.fetch(
       new Request('https://relay.test/', { method: 'OPTIONS', headers: { Origin: 'https://kinojms.github.io' } }),

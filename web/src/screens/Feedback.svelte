@@ -15,6 +15,11 @@
   let busy = $state(false)
   let confirming = $state(false)
   let error = $state<string | null>(null)
+  /** Set when the user leaves mid-send, so a late success doesn't navigate back a second time. */
+  let left = false
+  $effect(() => () => {
+    left = true
+  })
 
   const canSend = $derived(message.trim().length > 0 && !busy)
 
@@ -29,7 +34,7 @@
       contact = ''
       type = 'Suggestion'
       showToast('Thanks! Your feedback was sent.')
-      back()
+      if (!left) back()
     } else {
       error = result.message
     }

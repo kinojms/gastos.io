@@ -59,3 +59,23 @@ test('a failed send shows why and keeps the text', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveText("Couldn't send feedback. Try again later.")
   await expect(page.getByLabel('Message')).toHaveValue('Please add budgets')
 })
+
+test('leaving during a send does not go back a second time', async ({ page }) => {
+  let release: () => void = () => {}
+  const held = new Promise<void>((r) => (release = r))
+  await page.route('https://relay.test/**', async (route) => {
+    if (route.request().method() === 'POST') await held
+    await route.fulfill({ status: 200, contentType: 'application/json', headers: CORS, body: '{"ok":true}' })
+  })
+  await openFeedback(page)
+  await page.getByLabel('Message').fill('slow network')
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
+  await page.getByRole('button', { name: 'Send', exact: true }).last().click()
+  await expect(page.getByRole('button', { name: 'Sending…' })).toBeVisible()
+  await page.goBack()
+  await expect(page.getByText('Voice language')).toBeVisible() // on Settings
+  release()
+  await expect(page.getByRole('status')).toHaveText('Thanks! Your feedback was sent.')
+  await page.waitForTimeout(500)
+  await expect(page.getByText('Voice language')).toBeVisible() // still on Settings, not Home
+})

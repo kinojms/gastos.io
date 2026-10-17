@@ -23,6 +23,9 @@ export default {
     if (request.method === 'OPTIONS') return reply(204)
     if (request.method !== 'POST') return reply(405, { ok: false })
 
+    // Refuse a declared oversize body before reading any of it; still check the real size after.
+    const declared = Number(request.headers.get('Content-Length') ?? '0')
+    if (declared > MAX_BODY_BYTES) return reply(413, { ok: false })
     const raw = await request.text()
     if (new TextEncoder().encode(raw).length > MAX_BODY_BYTES) return reply(413, { ok: false })
 

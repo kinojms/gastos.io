@@ -119,13 +119,14 @@ fun SwipeableRow(
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        peekJob?.let { job ->
-                            if (job.isActive) {
-                                job.cancel()
-                                scope.launch { offset.snapTo(0f) }
-                            }
+                        // A touch stops the peek and the row starts closed: snapTo is dispatched, so don't read
+                        // offset.value here or a drag would start from the half-open peek and jump.
+                        val peeking = peekJob?.isActive == true
+                        if (peeking) {
+                            peekJob?.cancel()
+                            scope.launch { offset.snapTo(0f) }
                         }
-                        val start = offset.value
+                        val start = if (peeking) 0f else offset.value
                         val tracker = VelocityTracker()
                         var total = Offset.Zero
                         var axis: Axis? = null

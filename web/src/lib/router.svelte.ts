@@ -1,3 +1,5 @@
+import { feedbackEnabled } from './feedback/config'
+
 export type Tab = 'today' | 'days' | 'month'
 
 export type Route =
@@ -9,7 +11,8 @@ export type Route =
   | { name: 'settings' }
   | { name: 'feedback' }
 
-export function parseHash(hash: string): Route {
+/** `feedbackOn` is false while no relay is configured; #/feedback then falls back to Home. */
+export function parseHash(hash: string, feedbackOn: boolean = feedbackEnabled): Route {
   const raw = hash.replace(/^#/, '') || '/'
   const [path, query = ''] = raw.split('?')
   const params = new URLSearchParams(query)
@@ -22,7 +25,7 @@ export function parseHash(hash: string): Route {
   if (path === '/labels') return { name: 'labels' }
   if (path === '/methods') return { name: 'methods' }
   if (path === '/settings') return { name: 'settings' }
-  if (path === '/feedback') return { name: 'feedback' }
+  if (path === '/feedback') return feedbackOn ? { name: 'feedback' } : { name: 'home' }
   return { name: 'home' }
 }
 
