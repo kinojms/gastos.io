@@ -16,7 +16,7 @@ async function drag(page: Page, dx: number, dy: number) {
 test('the tour walks through five steps, then stays away after a reload', async ({ page }) => {
   await page.goto('./')
   await expect(tour(page)).toContainText('Enter the amount of your expense')
-  await expect(tour(page)).toContainText('1 of 5')
+  await expect(tour(page)).toContainText('1 of 6')
 
   // Input behind the tour is blocked: a tap on the "5" key does nothing.
   const key = (await page.getByRole('button', { name: '5', exact: true }).boundingBox())!
@@ -28,7 +28,7 @@ test('the tour walks through five steps, then stays away after a reload', async 
   await expect(tour(page).getByRole('button', { name: 'Next' })).toHaveCount(0)
 
   await drag(page, 5, -100) // wrong axis: nothing happens
-  await expect(tour(page)).toContainText('2 of 5')
+  await expect(tour(page)).toContainText('2 of 6')
   await expect(page.locator('.label')).toHaveText('Food') // a wrong-axis swipe changes nothing
 
   await drag(page, -100, 5)
@@ -40,6 +40,9 @@ test('the tour walks through five steps, then stays away after a reload', async 
   await expect(page.locator('.label')).toHaveText('Transpo') // swipes during the tour really change the label
   await tour(page).getByRole('button', { name: 'Next' }).click()
   await expect(tour(page)).toContainText('Finally, keep track of your expenses history here!')
+  await tour(page).getByRole('button', { name: 'Next' }).click()
+  await expect(tour(page)).toContainText('In your history, swipe an expense left to edit or delete it')
+  await expect(tour(page)).toContainText('6 of 6')
   await tour(page).getByRole('button', { name: 'Done' }).click()
   await expect(tour(page)).toHaveCount(0)
 
@@ -56,6 +59,6 @@ test('Skip ends the tour at once and it can be replayed from Settings', async ({
   await page.getByRole('button', { name: 'More' }).click()
   await page.getByRole('menuitem', { name: 'Settings' }).click()
   await page.getByRole('button', { name: 'Show guide' }).click()
-  await expect(tour(page)).toContainText('1 of 5')
+  await expect(tour(page)).toContainText('1 of 6')
   await expect(page.locator('.name')).toBeVisible()
 })

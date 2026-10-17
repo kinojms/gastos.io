@@ -14,7 +14,7 @@ val GuideStep.target: GuideTarget
         GuideStep.AMOUNT -> GuideTarget.NUMPAD
         GuideStep.METHOD, GuideStep.LABEL -> GuideTarget.SWIPE_AREA
         GuideStep.DESCRIPTION -> GuideTarget.DESCRIPTION
-        GuideStep.HISTORY -> GuideTarget.HISTORY_ICON
+        GuideStep.HISTORY, GuideStep.SWIPE_HINT -> GuideTarget.HISTORY_ICON
     }
 
 /**

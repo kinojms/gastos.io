@@ -16,6 +16,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 import java.io.File
@@ -62,9 +64,26 @@ class GuideControllerTest {
     }
 
     @Test fun doesNotAutoStartWhenSeen() = runBlocking {
-        prefs.setGuideSeenVersion(1)
+        prefs.setGuideSeenVersion(2)
         guide.startIfUnseen()
         assertNull(guide.step.value)
+    }
+
+    @Test fun returningV1UserSeesOnlyTheNewStep() = runBlocking {
+        prefs.setGuideSeenVersion(1)
+        guide.startIfUnseen()
+        assertEquals(GuideStep.SWIPE_HINT, guide.step.value)
+        guide.next()
+        assertNull(guide.step.value)
+        assertEquals(2, seen())
+    }
+
+    @Test fun historyStepNowLeadsToTheSwipeHint() {
+        walkTo(GuideStep.HISTORY)
+        assertFalse(GuideStep.HISTORY.isLast)
+        guide.next()
+        assertEquals(GuideStep.SWIPE_HINT, guide.step.value)
+        assertTrue(GuideStep.SWIPE_HINT.isLast)
     }
 
     @Test fun nextWalksNonSwipeSteps() {
@@ -94,33 +113,34 @@ class GuideControllerTest {
     }
 
     @Test fun doneOnLastMarksSeen() = runBlocking {
-        walkTo(GuideStep.HISTORY)
+        guide.startAuto()
+        walkTo(GuideStep.SWIPE_HINT)
         guide.next()
         assertNull(guide.step.value)
-        assertEquals(1, seen())
+        assertEquals(2, seen())
     }
 
     @Test fun skipMarksSeen() = runBlocking {
         guide.startAuto()
         guide.skip()
         assertNull(guide.step.value)
-        assertEquals(1, seen())
+        assertEquals(2, seen())
     }
 
     @Test fun appStoppedEndsAndMarksSeen() = runBlocking {
         guide.startAuto()
         guide.onAppStopped()
         assertNull(guide.step.value)
-        assertEquals(1, seen())
+        assertEquals(2, seen())
     }
 
     @Test fun replayDoesNotResetSeen() = runBlocking {
-        prefs.setGuideSeenVersion(1)
+        prefs.setGuideSeenVersion(2)
         guide.start()
         assertEquals(GuideStep.AMOUNT, guide.step.value)
         guide.skip()
         assertNull(guide.step.value)
-        assertEquals(1, seen())
+        assertEquals(2, seen())
         guide.start()
         assertEquals(GuideStep.AMOUNT, guide.step.value)
     }
@@ -139,9 +159,11 @@ class GuideControllerTest {
                 "Then, you can choose from a set of expense types",
                 "You can also specify what you bought (ex: Jollibee or MTG Cards)",
                 "Finally, keep track of your expenses history here!",
+                "In your history, swipe an expense left to edit or delete it",
             ),
             GuideStep.values().map { it.text },
         )
-        assertEquals(5, GUIDE_TOTAL)
+        assertEquals(6, GUIDE_TOTAL)
+        assertEquals(2, GUIDE_VERSION)
     }
 }

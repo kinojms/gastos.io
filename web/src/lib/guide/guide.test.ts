@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { openGastosDb } from '../data/db'
 import { getPref, setPref } from '../data/prefs'
-import { GUIDE_STEPS, GUIDE_VERSION, createGuide } from './guide.svelte'
+import { GUIDE_STEPS, GUIDE_TOTAL, GUIDE_VERSION, createGuide } from './guide.svelte'
 
 let n = 0
 beforeEach(async () => {
@@ -11,16 +11,22 @@ beforeEach(async () => {
 const settle = () => new Promise<void>((r) => setTimeout(r, 20))
 
 describe('steps', () => {
-  it('has the five steps with the Android copy', () => {
+  it('has the six steps with the Android copy', () => {
     expect(GUIDE_STEPS.map((s) => s.text)).toEqual([
       'Enter the amount of your expense',
       'You can change which payment method you used for this expense',
       'Then, you can choose from a set of expense types',
       'You can also specify what you bought (ex: Jollibee or MTG Cards)',
       'Finally, keep track of your expenses history here!',
+      'In your history, swipe an expense left to edit or delete it',
     ])
-    expect(GUIDE_STEPS.map((s) => s.swipeAxis)).toEqual([null, 'METHOD', 'LABEL', null, null])
-    expect(GUIDE_STEPS.map((s) => s.targets)).toEqual([['numpad', 'enter'], ['swipe'], ['swipe'], ['description'], ['history']])
+    expect(GUIDE_STEPS.map((s) => s.swipeAxis)).toEqual([null, 'METHOD', 'LABEL', null, null, null])
+    expect(GUIDE_STEPS.map((s) => s.targets)).toEqual([
+      ['numpad', 'enter'], ['swipe'], ['swipe'], ['description'], ['history'], ['history'],
+    ])
+    expect(GUIDE_STEPS.map((s) => s.isLast)).toEqual([false, false, false, false, false, true])
+    expect(GUIDE_TOTAL).toBe(6)
+    expect(GUIDE_VERSION).toBe(2)
   })
 })
 
@@ -34,6 +40,24 @@ describe('guide', () => {
     const again = createGuide()
     await again.startIfUnseen()
     expect(again.step).toBeNull()
+  })
+
+  it('people who saw version 1 get only the new step, then count as seen', async () => {
+    await setPref('guide_seen_version', 1)
+    const g = createGuide()
+    await g.startIfUnseen()
+    expect(g.step?.number).toBe(6)
+    g.next()
+    expect(g.step).toBeNull()
+    await settle()
+    expect(await getPref('guide_seen_version')).toBe(2)
+  })
+
+  it('replay always starts at step 1', async () => {
+    await setPref('guide_seen_version', 2)
+    const g = createGuide()
+    g.start()
+    expect(g.step?.number).toBe(1)
   })
 
   it('a swipe on the wrong axis does nothing, the right one advances', () => {
@@ -61,6 +85,8 @@ describe('guide', () => {
     g.onSwipe('LABEL')
     g.next() // 4 -> 5
     expect(g.step?.number).toBe(5)
+    g.next() // 5 -> 6
+    expect(g.step?.number).toBe(6)
     g.next()
     expect(g.step).toBeNull()
   })

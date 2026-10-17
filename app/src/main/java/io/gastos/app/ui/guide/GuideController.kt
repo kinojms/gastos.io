@@ -33,9 +33,13 @@ class GuideController(private val prefs: AppPrefs, private val scope: CoroutineS
         _step.value = GuideStep.AMOUNT
     }
 
+    /** Fresh installs get the whole tour; people who saw version 1 get only the step it lacked. */
     suspend fun startIfUnseen() {
         if (_step.value != null) return
-        if (prefs.guideSeenVersion.first() < GUIDE_VERSION && _step.value == null) startAuto()
+        val seen = prefs.guideSeenVersion.first()
+        if (seen >= GUIDE_VERSION || _step.value != null) return
+        auto = true
+        _step.value = if (seen >= GUIDE_V1) GuideStep.SWIPE_HINT else GuideStep.AMOUNT
     }
 
     /** Advances past a non-swipe step; on the last step it finishes. Ignored on swipe steps. */

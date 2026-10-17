@@ -1,10 +1,13 @@
 import { getPref, setPref } from '../data/prefs'
 import type { Axis } from '../domain/swipe'
 
-export const GUIDE_TOTAL = 5
+export const GUIDE_TOTAL = 6
 
 /** Bump to show the tour again to everyone who has already seen an earlier version. */
-export const GUIDE_VERSION = 1
+export const GUIDE_VERSION = 2
+
+/** Version 1 had steps 1-5; people who saw it are shown only what version 2 added. */
+const GUIDE_V1 = 1
 
 export interface GuideStep {
   number: number
@@ -34,7 +37,14 @@ export const GUIDE_STEPS: GuideStep[] = [
     targets: ['description'],
     isLast: false,
   },
-  { number: 5, text: 'Finally, keep track of your expenses history here!', swipeAxis: null, targets: ['history'], isLast: true },
+  { number: 5, text: 'Finally, keep track of your expenses history here!', swipeAxis: null, targets: ['history'], isLast: false },
+  {
+    number: 6,
+    text: 'In your history, swipe an expense left to edit or delete it',
+    swipeAxis: null,
+    targets: ['history'],
+    isLast: true,
+  },
 ]
 
 /**
@@ -72,14 +82,13 @@ export function createGuide() {
       index = 0
     },
 
-    /** First-run tour: starts only when the stored version is older than GUIDE_VERSION. */
+    /** Fresh installs get the whole tour; people who saw version 1 get only the step it lacked. */
     async startIfUnseen() {
       if (index !== null) return
       const seen = (await getPref('guide_seen_version')) ?? 0
-      if (seen < GUIDE_VERSION && index === null) {
-        auto = true
-        index = 0
-      }
+      if (seen >= GUIDE_VERSION || index !== null) return
+      auto = true
+      index = seen >= GUIDE_V1 ? GUIDE_STEPS.length - 1 : 0
     },
 
     /** Advances past a non-swipe step; on the last step it finishes. Ignored on swipe steps. */
