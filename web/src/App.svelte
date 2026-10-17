@@ -1,12 +1,12 @@
 <script lang="ts">
   import { router } from './lib/router.svelte'
   import Toast from './lib/ui/Toast.svelte'
-  import TopBar from './lib/ui/TopBar.svelte'
   import DayView from './screens/DayView.svelte'
   import Expenses from './screens/Expenses.svelte'
   import Home from './screens/Home.svelte'
   import Labels from './screens/Labels.svelte'
   import Methods from './screens/Methods.svelte'
+  import Settings from './screens/Settings.svelte'
 
   const route = $derived(router.route)
 </script>
@@ -22,9 +22,8 @@
     <Labels />
   {:else if route.name === 'methods'}
     <Methods />
-  {:else}
-    <TopBar title={route.name} />
-    <main><p>{route.name}</p></main>
+  {:else if route.name === 'settings'}
+    <Settings />
   {/if}
 </div>
 <Toast />
