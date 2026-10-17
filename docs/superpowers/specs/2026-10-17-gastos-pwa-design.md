@@ -95,7 +95,7 @@ Everything not listed works the same as on Android.
 ### Backup state rules *(my calls, settling the reviewer's questions)*
 - `backup_enabled` controls **GitHub auto-backup only**. Auto-backup runs only when `backup_enabled` is true **and** both repo and token are set.
 - Any restore (file or GitHub) or "Start fresh" sets `backup_enabled = true`, as on Android. With no repo set, nothing runs and no error is recorded.
-- Saving a **new or changed** repo/token turns `backup_enabled` off until the user chooses either "Restore from GitHub" or "Back up now". "Back up now" asks first: "Replace the backup in owner/repo with this phone's N expenses?" This way, setting up GitHub after a file restore can never silently overwrite an existing `backup.json`.
+- Saving a **new or changed** repo/token turns `backup_enabled` off until the user chooses either "Restore from GitHub" or "Start fresh". These are the existing Android buttons and confirm copy, shown while backup is off. This way, setting up GitHub after a file restore can never silently overwrite an existing `backup.json`.
 - The Home reminder shows when **repo or token is not set** (not based on `backup_enabled`).
 - Cross-platform moves today: through a GitHub repo, or by downloading `backup.json` from GitHub and using Restore from file. The README documents both.
 
