@@ -2,15 +2,23 @@
   import { router } from './lib/router.svelte'
   import Toast from './lib/ui/Toast.svelte'
   import TopBar from './lib/ui/TopBar.svelte'
+  import DayView from './screens/DayView.svelte'
+  import Expenses from './screens/Expenses.svelte'
   import Home from './screens/Home.svelte'
+
+  const route = $derived(router.route)
 </script>
 
 <div class="app safe">
-  {#if router.route.name === 'home'}
+  {#if route.name === 'home'}
     <main class="home-main"><Home /></main>
+  {:else if route.name === 'expenses'}
+    <Expenses />
+  {:else if route.name === 'day'}
+    {#key route.date}<DayView day={route.date} />{/key}
   {:else}
-    <TopBar title={router.route.name} />
-    <main><p>{router.route.name}</p></main>
+    <TopBar title={route.name} />
+    <main><p>{route.name}</p></main>
   {/if}
 </div>
 <Toast />
