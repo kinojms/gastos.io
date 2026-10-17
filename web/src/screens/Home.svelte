@@ -7,6 +7,7 @@
   import { navigate } from '../lib/router.svelte'
   import Numpad from '../lib/ui/Numpad.svelte'
   import SwipeArea from '../lib/ui/SwipeArea.svelte'
+  import VoiceButton from '../lib/ui/VoiceButton.svelte'
   import { showToast } from '../lib/ui/toastState.svelte'
   import { createHomeState } from './homeState.svelte'
 
@@ -87,6 +88,7 @@
       oninput={(e) => home.setDescription(e.currentTarget.value)}
       onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
     />
+    <div class="mic-slot"><VoiceButton onresult={(text) => home.setDescriptionFromVoice(text)} /></div>
   </div>
 
   <Numpad onKey={(k) => home.key(k)} />
@@ -189,13 +191,20 @@
   }
 
   .field {
+    position: relative;
     padding: 0 14px 10px;
+  }
+
+  .mic-slot {
+    position: absolute;
+    right: 18px;
+    top: 4px;
   }
 
   input {
     width: 100%;
     height: 52px;
-    padding: 0 14px;
+    padding: 0 56px 0 14px;
     border: 1px solid var(--line);
     border-radius: 12px;
     background: var(--surface);
