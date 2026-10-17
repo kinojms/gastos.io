@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A installable, offline PWA in `web/` that gives iPhone users every Android v1.3 feature except the widget, deployed to GitHub Pages.
+**Goal:** An installable, offline PWA in `web/` that gives iPhone users every Android v1.3 feature except the widget, deployed to GitHub Pages.
 
 **Architecture:** Svelte 5 single-page app with hash routing. Pure TypeScript domain modules (`web/src/lib/domain`) are ported 1:1 from the Kotlin `domain/`, `export/` and `backup/` code and unit-tested. Data is stored in IndexedDB via `idb`, behind repository modules that mirror the Kotlin repositories and emit a `dataChanged` event. UI components mirror the Compose screens. Workbox (via `vite-plugin-pwa`) precaches everything for offline use.
 
