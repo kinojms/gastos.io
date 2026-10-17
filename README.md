@@ -12,6 +12,8 @@ A fast, personal expense tracker for Android and iPhone. Open the app, type an a
 - Widget payment ticker.
 - Save and restore a backup file (Settings → Backup).
 - New wallet icon.
+- Swipe an expense left to edit or delete it.
+- Settings → Submit feedback sends ideas, bug reports and questions straight to the developer.
 - A short guide shows the main features on first launch; replay it from Settings → Show guide.
 - About the dev.
 
@@ -55,6 +57,10 @@ Long-press the home screen, tap Widgets, find Gastos.io, and add it.
 ## File backup
 
 Settings → Backup → Save backup file writes all your data to a `.json` file you choose where to keep. Restore from file loads one back and replaces everything on the phone. The file is the same format as the GitHub backup, so it also works across Android and iPhone. If GitHub backup isn't set up, Home reminds you after 14 days without a backup.
+
+## Feedback relay
+
+Submit feedback posts to a small Cloudflare Worker in `feedback-relay/`, which forwards each message to the developer's Telegram. Its URL lives in `config/feedback-url.txt`; leave that file blank to hide the feature. Setup steps are in `feedback-relay/README.md`.
 
 ## Building
 
