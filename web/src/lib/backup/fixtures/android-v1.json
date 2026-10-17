@@ -1,0 +1,1 @@
+{"schemaVersion":1,"exportedAt":"2026-10-15T00:00:00Z","labels":[{"id":10,"name":"Groceries","colorArgb":1,"position":0,"isOther":false},{"id":11,"name":"Other","colorArgb":2,"position":1,"isOther":true}],"expenses":[{"id":40,"amountCentavos":12345,"labelId":10,"timestamp":1000},{"id":41,"amountCentavos":500,"labelId":11,"timestamp":2000}]}
