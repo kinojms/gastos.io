@@ -1,0 +1,228 @@
+<script lang="ts">
+  import { onMount } from 'svelte'
+  import { argbToCss } from '../lib/domain/color'
+  import { DESCRIPTION_MAX } from '../lib/domain/expenseText'
+  import { formatHeaderDate } from '../lib/domain/dates'
+  import { formatMoney } from '../lib/domain/money'
+  import { navigate } from '../lib/router.svelte'
+  import Numpad from '../lib/ui/Numpad.svelte'
+  import SwipeArea from '../lib/ui/SwipeArea.svelte'
+  import { showToast } from '../lib/ui/toastState.svelte'
+  import { createHomeState } from './homeState.svelte'
+
+  const home = createHomeState()
+
+  let menuOpen = $state(false)
+  let descriptionInput: HTMLInputElement | undefined = $state()
+
+  onMount(() => home.start())
+
+  async function enter() {
+    descriptionInput?.blur()
+    const message = await home.enter()
+    if (message) showToast(message)
+  }
+
+  /** Tapping anywhere outside the text box hides the keyboard. */
+  function outside(e: PointerEvent) {
+    if (e.target !== descriptionInput) descriptionInput?.blur()
+  }
+
+  function openMenuItem(path: string) {
+    menuOpen = false
+    navigate(path)
+  }
+
+  const tint = $derived(home.method ? argbToCss(home.method.colorArgb) : 'transparent')
+</script>
+
+<svelte:window onpointerdown={outside} />
+
+<div class="home" style:--method={tint}>
+  <div class="tint" aria-hidden="true"></div>
+  <header>
+    <div class="when">
+      <div class="date">{formatHeaderDate(home.today)}</div>
+      <div class="total">Today {formatMoney(home.todayTotal)}</div>
+    </div>
+    <button class="icon" data-guide="history" aria-label="Expenses list" onclick={() => navigate('/expenses')}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
+      </svg>
+    </button>
+    <div class="menu-wrap">
+      <button class="icon" aria-label="More" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true">
+          <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
+        </svg>
+      </button>
+      {#if menuOpen}
+        <div class="menu-scrim" role="presentation" onclick={() => (menuOpen = false)}></div>
+        <div class="menu" role="menu">
+          <button role="menuitem" onclick={() => openMenuItem('/labels')}>Labels</button>
+          <button role="menuitem" onclick={() => openMenuItem('/methods')}>Payment methods</button>
+          <button role="menuitem" onclick={() => openMenuItem('/settings')}>Settings</button>
+        </div>
+      {/if}
+    </div>
+  </header>
+
+  <SwipeArea
+    method={home.method}
+    label={home.label}
+    methods={home.methods}
+    amount={home.amount}
+    onswipe={(axis, delta) => void home.swipe(axis, delta)}
+  />
+
+  <div class="field" data-guide="description">
+    <input
+      bind:this={descriptionInput}
+      type="text"
+      placeholder="What did you buy?"
+      maxlength={DESCRIPTION_MAX}
+      enterkeyhint="done"
+      autocomplete="off"
+      value={home.description}
+      oninput={(e) => home.setDescription(e.currentTarget.value)}
+      onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+    />
+  </div>
+
+  <Numpad onKey={(k) => home.key(k)} />
+  <div class="enter-wrap" data-guide="enter">
+    <button class="enter" onclick={enter}>Enter</button>
+  </div>
+</div>
+
+<style>
+  .home {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin: 0 -16px; /* App pads main by 16px; Home uses the full width */
+  }
+
+  /* The tint covers the whole screen, status bar and home bar included. */
+  .tint {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: color-mix(in srgb, var(--method) 20%, var(--bg));
+    transition: background-color 0.25s;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .tint {
+      background: color-mix(in srgb, var(--method) 26%, var(--bg));
+    }
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 18px;
+  }
+
+  .when {
+    flex: 1;
+  }
+
+  .date {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .total {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .icon {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 19px;
+    background: var(--surface2);
+    color: var(--fg);
+  }
+
+  .menu-wrap {
+    position: relative;
+  }
+
+  .menu-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+  }
+
+  .menu {
+    position: absolute;
+    right: 0;
+    top: 44px;
+    z-index: 21;
+    min-width: 200px;
+    padding: 6px;
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .menu button {
+    border: 0;
+    background: none;
+    text-align: left;
+    padding: 12px 14px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+
+  .menu button:active {
+    background: var(--surface2);
+  }
+
+  .field {
+    padding: 0 14px 10px;
+  }
+
+  input {
+    width: 100%;
+    height: 52px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--fg);
+    outline: none;
+  }
+
+  input:focus {
+    border-color: var(--accent);
+  }
+
+  input::placeholder {
+    color: var(--muted);
+  }
+
+  .enter-wrap {
+    padding: 10px 14px 16px;
+  }
+
+  .enter {
+    width: 100%;
+    height: 58px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 18px;
+    font-weight: 700;
+  }
+</style>
