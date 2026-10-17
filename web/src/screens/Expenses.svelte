@@ -7,6 +7,7 @@
   import { live } from '../lib/live.svelte'
   import { navigate, router, type Tab } from '../lib/router.svelte'
   import DayList from '../lib/ui/DayList.svelte'
+  import EditExpenseSheet from '../lib/ui/EditExpenseSheet.svelte'
   import MonthSwitcher from '../lib/ui/MonthSwitcher.svelte'
   import MonthTab from '../lib/ui/MonthTab.svelte'
   import TopBar from '../lib/ui/TopBar.svelte'
@@ -68,6 +69,10 @@
     <MonthTab {month} onprev={prev} onnext={next} />
   {/if}
 </div>
+
+{#if editing}
+  <EditExpenseSheet row={editing} onclose={() => (editing = null)} />
+{/if}
 
 <style>
   .tabs {
