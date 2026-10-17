@@ -10,12 +10,14 @@ A fast, personal expense tracker for Android. Open the app, type an amount, hit 
 - CSV and XLSX exports include Description, Payment and Notes. The XLSX also has a "By payment" monthly sheet.
 - Five themes: Classic, Sand, Nord, Mocha and Forest. Each has light and dark.
 - Widget payment ticker.
+- Save and restore a backup file (Settings → Backup).
+- New wallet icon.
 - A short guide shows the main features on first launch; replay it from Settings → Show guide.
 - About the dev.
 
 ## Install
 
-1. On the phone, log into GitHub in the browser (the repo is private).
+1. On the phone, open the browser.
 2. Open the repo's Releases page and download the latest `gastos-vX.Y.Z.apk`.
 3. Open the file. If asked, allow "Install unknown apps" for that browser or file manager (Samsung: Settings > Apps > the browser/My Files > Install unknown apps).
 4. Install. Later versions install over the old one.
@@ -29,7 +31,12 @@ Long-press the home screen, tap Widgets, find Gastos.io, and add it.
 1. On GitHub, create a private repo named `expenses-data` and add a README so it is not empty.
 2. Create a fine-grained personal access token limited to that repo only, with Contents set to read and write.
 3. In the app, open Settings, paste `owner/expenses-data` and the token, and tap Save.
-4. On a new phone, tap Restore from GitHub to load the backup. On a first-time setup tap Start fresh. Backup stays off until you pick one.
+4. Saving a new or changed repo or token pauses auto-backup until you tap Restore from GitHub or Start fresh.
+5. On a new phone, tap Restore from GitHub to load the backup. On a first-time setup tap Start fresh. Backup stays off until you pick one.
+
+## File backup
+
+Settings → Backup → Save backup file writes all your data to a `.json` file you choose where to keep. Restore from file loads one back and replaces everything on the phone. The file is the same format as the GitHub backup, so it also works across Android and iPhone. If GitHub backup isn't set up, Home reminds you after 14 days without a backup.
 
 ## Building
 
