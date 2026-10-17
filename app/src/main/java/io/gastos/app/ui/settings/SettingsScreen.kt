@@ -141,7 +141,15 @@ private fun openLink(context: Context, url: String) {
 }
 
 @Composable
-fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenLabels: () -> Unit, onOpenMethods: () -> Unit, onShowGuide: () -> Unit) {
+fun SettingsScreen(
+    vm: SettingsViewModel,
+    onBack: () -> Unit,
+    onOpenLabels: () -> Unit,
+    onOpenMethods: () -> Unit,
+    onShowGuide: () -> Unit,
+    /** Null while no feedback relay is configured: the row is hidden. */
+    onOpenFeedback: (() -> Unit)? = null,
+) {
     val colors = GastosTheme.colors
     val repo by vm.repoInput.collectAsState()
     val token by vm.tokenInput.collectAsState()
@@ -295,6 +303,7 @@ fun SettingsScreen(vm: SettingsViewModel, onBack: () -> Unit, onOpenLabels: () -
             NavRow("Voice language", voiceLang.displayName) { pickingVoice = true }
             NavRow("Labels", onClick = onOpenLabels)
             NavRow("Payment methods", onClick = onOpenMethods)
+            onOpenFeedback?.let { NavRow("Submit feedback", onClick = it) }
             NavRow("Show guide", onClick = onShowGuide)
 
             Text("About the dev", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.muted)

@@ -27,6 +27,7 @@ object ConfirmCopy {
     }
     fun startFresh() = "Start fresh? Any existing backup in the repo will be replaced with this phone's data."
     fun saveBackupSettings() = "Save backup settings?"
+    fun sendFeedback() = "Send this feedback?"
     fun changeTheme(name: String) = "Change theme to $name?"
     fun changeVoiceLanguage(name: String) = "Change voice language to $name?"
 }

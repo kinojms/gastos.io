@@ -1,6 +1,9 @@
 package io.gastos.app.ui
 
 import androidx.compose.runtime.Composable
+import io.gastos.app.BuildConfig
+import io.gastos.app.ui.feedback.FeedbackScreen
+import io.gastos.app.ui.feedback.FeedbackViewModel
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModel
@@ -30,6 +33,7 @@ object Routes {
     const val LABELS = "labels"
     const val METHODS = "methods"
     const val SETTINGS = "settings"
+    const val FEEDBACK = "feedback"
 
     fun day(isoDate: String) = "day/$isoDate"
 }
@@ -67,6 +71,13 @@ fun GastosNavHost(container: AppContainer) {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = PaymentMethodsViewModel(container.paymentMethods) as T
+        }
+    }
+    val feedbackFactory = remember(container) {
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                FeedbackViewModel(container.feedback, BuildConfig.VERSION_NAME) as T
         }
     }
     val settingsFactory = remember(container) {
@@ -123,6 +134,15 @@ fun GastosNavHost(container: AppContainer) {
                     nav.popBackStack(Routes.HOME, inclusive = false)
                     container.guide.start()
                 },
+                onOpenFeedback = if (BuildConfig.FEEDBACK_URL.isNotBlank()) {
+                    { nav.navigate(Routes.FEEDBACK) }
+                } else null,
+            )
+        }
+        composable(Routes.FEEDBACK) {
+            FeedbackScreen(
+                vm = viewModel<FeedbackViewModel>(factory = feedbackFactory),
+                onBack = { nav.popBackStack() },
             )
         }
     }

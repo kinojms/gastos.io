@@ -36,6 +36,8 @@ class ConfirmCopyTest {
         assertEquals("Save backup settings?", ConfirmCopy.saveBackupSettings())
     }
 
+    @Test fun feedbackCopy() = assertEquals("Send this feedback?", ConfirmCopy.sendFeedback())
+
     @Test fun themeAndVoiceCopy() {
         assertEquals("Change theme to Nord?", ConfirmCopy.changeTheme("Nord"))
         assertEquals("Change voice language to Tagalog?", ConfirmCopy.changeVoiceLanguage("Tagalog"))

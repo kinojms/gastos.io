@@ -13,6 +13,7 @@ import io.gastos.app.data.GastosDatabase
 import io.gastos.app.data.LabelRepository
 import io.gastos.app.data.PaymentMethodRepository
 import io.gastos.app.export.ExportService
+import io.gastos.app.feedback.FeedbackClient
 import io.gastos.app.ui.guide.GuideController
 import io.gastos.app.widget.GastosWidget
 import kotlinx.coroutines.CancellationException
@@ -46,6 +47,9 @@ class AppContainer(context: Context) {
     val tokens: TokenStore = TokenStore(context)
     val backupManager: BackupManager =
         BackupManager(db, prefs, tokens, GitHubClient(OkHttpClient()), Clock.systemUTC()) { onDataChanged() }
+
+    /** Sends feedback to the Telegram relay; unused while BuildConfig.FEEDBACK_URL is blank. */
+    val feedback: FeedbackClient = FeedbackClient(OkHttpClient(), BuildConfig.FEEDBACK_URL)
 
     /** True while a GitHub repo and token are both saved. Re-checked whenever the repo changes. */
     val hasGitHubBackup: Flow<Boolean> =
